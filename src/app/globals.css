@@ -3,6 +3,8 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  /* Azul suave para o fundo do dashboard se quiser fugir do branco puro */
+  --dashboard-bg: #f8fafc; 
 }
 
 @theme inline {
@@ -10,17 +12,68 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  
+  /* Ajuste de border-radius para um look mais limpo */
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+    --dashboard-bg: #0f172a;
   }
+}
+
+/* CONFIGURAÇÃO DE ESCALA 
+  Reduzimos o font-size global para 93.75% (15px) 
+  Isso faz com que todos os 'rems' do Tailwind diminuam proporcionalmente.
+*/
+html {
+  font-size: 93.75%;
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* CLASSE UTILITÁRIA PARA O CONTEÚDO 
+  Aplique esta classe na sua <main> ou na div que envolve o conteúdo das páginas
+*/
+.content-container {
+  width: 100%;
+  max-width: 1400px; /* Impede que a tela estique demais em monitores UltraWide */
+  margin-left: auto;
+  margin-right: auto;
+  padding: 1.5rem; /* Espaçamento interno padrão */
+}
+
+/* Ajuste fino para tabelas e inputs ficarem mais densos */
+input, select, button {
+  @apply transition-all duration-200;
+}
+
+/* Scrollbar personalizada para não ocupar muito espaço visual */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
