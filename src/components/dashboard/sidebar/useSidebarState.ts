@@ -1,8 +1,6 @@
-// hooks/useSidebarState.ts
 'use client';
 
 import { useState, useEffect } from 'react';
-// ✅ CORREÇÃO: Adicionar 'getDocs' e 'collection' aos imports
 import { doc, getDoc, getDocs, collection } from 'firebase/firestore'; 
 import { db } from '@/lib/firebase/firebase';
 import { useAuthContext } from '@/contexts/AuthContext';
@@ -44,18 +42,21 @@ export function useSidebarState() {
         let condoIds: string[] = [];
         
         if (userData.role === 'admin') {
-          // ✅ CORRIGIDO: 'getDocs' e 'collection' agora são reconhecidos
+          // Admin vê todos os condomínios cadastrados no sistema
           const condosSnap = await getDocs(collection(db, 'condominios'));
           condoIds = condosSnap.docs.map(d => d.id);
         } else if (userData.role === 'gestor') {
-          condoIds = userData.condominios || [];
+          // ✅ CORREÇÃO: O campo correto definido no seu UserData é 'condominiosGeridos'
+          condoIds = userData.condominiosGeridos || [];
         }
 
         if (condoIds.length === 0) {
+          setCondominiosList([]);
           setDataLoading(false);
           return;
         }
 
+        // Busca os nomes de cada condomínio da lista de IDs
         const promises = condoIds.map(id => getDoc(doc(db, 'condominios', id)));
         const condoDocs = await Promise.all(promises);
 
@@ -68,7 +69,7 @@ export function useSidebarState() {
 
         setCondominiosList(condoData);
         
-        // Define o condomínio selecionado inicial
+        // Define o condomínio selecionado inicial se ainda não houver um
         if (condoData.length > 0 && !selectedCondo) {
           setSelectedCondo(condoData[0].id);
         }
@@ -81,7 +82,7 @@ export function useSidebarState() {
     };
 
     loadCondominios();
-  }, [userData, authLoading]); // Roda quando 'userData' ou 'authLoading' mudam
+  }, [userData, authLoading, selectedCondo]); 
 
   const toggleSection = (section: string) => {
     setExpandedSections(prev => ({
