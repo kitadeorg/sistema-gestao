@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "MULTI.GEST",
-  description: "Sistema de gestao de condominios",
+  description: "Sistema de gestão de condomínios",
 };
 
 export default function RootLayout({
@@ -24,10 +24,18 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="pt-pt"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full bg-[var(--background)] selection:bg-orange-500/30">
+        {/* Se este for o layout principal que envolve a Sidebar, 
+          deixamos o flex aqui. Se for apenas o Root, o conteúdo 
+          dentro dos Dashboards cuidará do container.
+        */}
+        <div className="relative flex min-h-screen flex-col">
+          {children}
+        </div>
+      </body>
     </html>
   );
 }
