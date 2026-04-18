@@ -1,3 +1,6 @@
+// Ficheiro: src/components/dashboard/pages/usuarios/UsuariosContent.tsx
+// Este código já está correto. O erro é no componente <UsuariosTable />
+
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -13,12 +16,11 @@ type StatusFilter = UserData['status'] | 'todos';
 
 export default function UsuariosContent() {
   const { user, userData, loading: authLoading } = useAuthContext();
-  
-  // Verificação de permissão baseada no que temos carregado do Firestore
+
   const canAccess = userData?.role === 'admin' || userData?.role === 'gestor';
 
   const [users, setUsers] = useState<UserData[]>([]);
-  const [loading, setLoading] = useState(false); // Começa false, vamos controlar no useEffect
+  const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<RoleFilter>('todos');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('todos');
@@ -26,9 +28,8 @@ export default function UsuariosContent() {
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
 
   const fetchUsers = useCallback(async () => {
-    // Só buscamos se tivermos permissão
     if (!canAccess) return;
-    
+
     setLoading(true);
     try {
       const data = await getUsers();
@@ -41,7 +42,6 @@ export default function UsuariosContent() {
   }, [canAccess]);
 
   useEffect(() => {
-    // Só tentamos buscar quando o Auth e os Dados de utilizador estiverem carregados
     if (!authLoading && user && userData) {
       if (canAccess) {
         fetchUsers();
@@ -51,7 +51,6 @@ export default function UsuariosContent() {
     }
   }, [fetchUsers, authLoading, user, userData, canAccess]);
 
-  // Filtro corrigido (evitando conflito de nomes com 'user')
   const filteredUsers = users.filter((u) => {
     const matchesSearch =
       searchTerm === '' ||
@@ -79,7 +78,7 @@ export default function UsuariosContent() {
     }
   };
 
-  const handleToggleStatus = async (userId: string, currentStatus: string) => {
+  const handleToggleStatus = async (userId: string, currentStatus: UserData['status']) => {
     try {
       await toggleUserStatus(userId, currentStatus);
       await fetchUsers();
@@ -105,10 +104,8 @@ export default function UsuariosContent() {
     pendentes: users.filter((u) => u.status === 'pendente').length,
   };
 
-  // Se ainda estiver a carregar o auth
   if (authLoading) return <div className="p-10 text-center">A carregar permissões...</div>;
 
-  // Se carregou e não tem permissão
   if (!canAccess) {
     return (
       <div className="flex flex-col items-center justify-center py-20 text-center">

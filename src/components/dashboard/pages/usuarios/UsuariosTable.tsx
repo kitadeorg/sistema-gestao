@@ -1,4 +1,3 @@
-// components/dashboard/pages/usuarios/UsuariosTable.tsx
 'use client';
 
 import React from 'react';
@@ -12,7 +11,8 @@ type UsuariosTableProps = {
   loading?: boolean;
   onEdit: (user: UserData) => void;
   onDelete: (userId: string) => void;
-  onToggleStatus: (userId: string, currentStatus: string) => void;
+  // CORREÇÃO: Tipagem rigorosa para o status
+  onToggleStatus: (userId: string, currentStatus: UserData['status']) => void;
 };
 
 function roleLabel(role: UserData['role']) {
@@ -107,21 +107,11 @@ export default function UsuariosTable({
         <table className="w-full">
           <thead className="bg-zinc-50 border-b border-zinc-200">
             <tr>
-              <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">
-                Nome
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">
-                Email
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">
-                Perfil
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">
-                Status
-              </th>
-              <th className="text-right px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">
-                Ações
-              </th>
+              <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">Nome</th>
+              <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">Email</th>
+              <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">Perfil</th>
+              <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">Status</th>
+              <th className="text-right px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">Ações</th>
             </tr>
           </thead>
 
@@ -135,13 +125,12 @@ export default function UsuariosTable({
             ) : (
               users.map((u) => {
                 const isSelf = !!currentUid && u.id === currentUid;
-
-                const canManage = isAdmin; // regra pedida: só admin pode gerir
-                const canDelete = canManage && !isSelf; // evita eliminar a própria conta
-                const canToggle = canManage && !isSelf; // evita desativar a própria conta
+                const canManage = isAdmin;
+                const canDelete = canManage && !isSelf;
+                const canToggle = canManage && !isSelf;
 
                 const toggleLabel =
-                  u.status === 'ativo' ? 'Desativar' : u.status === 'inativo' ? 'Ativar' : 'Ativar';
+                  u.status === 'ativo' ? 'Desativar' : 'Ativar';
 
                 return (
                   <tr key={u.id} className="hover:bg-zinc-50/60 transition-colors">
@@ -229,13 +218,11 @@ export default function UsuariosTable({
         ) : (
           users.map((u) => {
             const isSelf = !!currentUid && u.id === currentUid;
-
             const canManage = isAdmin;
             const canDelete = canManage && !isSelf;
             const canToggle = canManage && !isSelf;
 
-            const toggleLabel =
-              u.status === 'ativo' ? 'Desativar' : u.status === 'inativo' ? 'Ativar' : 'Ativar';
+            const toggleLabel = u.status === 'ativo' ? 'Desativar' : 'Ativar';
 
             return (
               <div key={u.id} className="rounded-2xl border border-zinc-200 bg-white p-4">
@@ -299,11 +286,6 @@ export default function UsuariosTable({
           })
         )}
       </div>
-
-      {/* Nota importante */}
-      <p className="text-xs text-zinc-500">
-       
-      </p>
     </div>
   );
 }
