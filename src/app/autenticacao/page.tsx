@@ -499,7 +499,7 @@ export default function AuthPage() {
                     placeholder="Nome completo"
                     autoComplete="name"
                     disabled={isLoading}
-                    className={`w-full pl-11 pr-4 py-3 border rounded-lg outline-none transition-all duration-200 disabled:bg-gray-100 ${
+                    className={`w-full pl-11 pr-4 py-3 border rounded-lg outline-none transition-all text-black duration-200 disabled:bg-gray-100 ${
                       errors.name
                         ? 'border-red-400 focus:ring-2 focus:ring-red-200'
                         : 'border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200'
@@ -513,7 +513,7 @@ export default function AuthPage() {
             {/* Email */}
             <div>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
+                <Mail className="absolute left-3  top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
                 <input
                   type="email"
                   name="email"
@@ -522,7 +522,7 @@ export default function AuthPage() {
                   placeholder="Email"
                   autoComplete="email"
                   disabled={isLoading}
-                  className={`w-full pl-11 pr-4 py-3 border rounded-lg outline-none transition-all duration-200 disabled:bg-gray-100 ${
+                  className={`w-full pl-11 text-black pr-4 py-3 border rounded-lg outline-none transition-all duration-200 disabled:bg-gray-100 ${
                     errors.email
                       ? 'border-red-400 focus:ring-2 focus:ring-red-200'
                       : 'border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200'
@@ -545,7 +545,7 @@ export default function AuthPage() {
                     placeholder="Senha"
                     autoComplete={isLogin ? 'current-password' : 'new-password'}
                     disabled={isLoading}
-                    className={`w-full pl-11 pr-12 py-3 border rounded-lg outline-none transition-all duration-200 disabled:bg-gray-100 ${
+                    className={`w-full pl-11 text-black pr-12 py-3 border rounded-lg outline-none transition-all duration-200 disabled:bg-gray-100 ${
                       errors.password
                         ? 'border-red-400 focus:ring-2 focus:ring-red-200'
                         : 'border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200'
