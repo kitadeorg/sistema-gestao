@@ -1,8 +1,10 @@
+// src/hooks/useAdminDashboard.ts
+
 'use client';
 
 import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where, Timestamp } from 'firebase/firestore';
 
 import {
   DashboardAdminData,
@@ -10,6 +12,13 @@ import {
   CondominioPerfomance,
   AlertaDashboard,
 } from '@/types/admin';
+
+// 1. A interface de props foi alterada para receber o período e o condomínio
+interface UseAdminDashboardProps {
+  startDate: Date;
+  endDate: Date;
+  selectedCondo?: string; // Tornar opcional para segurança
+}
 
 interface FirestoreDoc<T> {
   id: string;
@@ -27,19 +36,31 @@ interface FirestoreUsuario {
   condominios?: string[];
 }
 
-export function useAdminDashboard(
-  selectedCondo: string | undefined
-) {
+// 2. O hook agora recebe um único objeto com as props desestruturadas
+export function useAdminDashboard({
+  startDate,
+  endDate,
+  selectedCondo,
+}: UseAdminDashboardProps) {
   const [data, setData] = useState<DashboardAdminData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 3. O useEffect agora depende das datas e do condomínio
   useEffect(() => {
-    if (!selectedCondo) return;
+    // Não faz nada se o condomínio selecionado não estiver definido
+    if (!selectedCondo) {
+      setLoading(false);
+      return;
+    }
 
     const fetchDashboard = async () => {
       try {
         setLoading(true);
+
+        // NOTA: Para uma query real por data, seria preciso filtrar outras coleções
+        // como 'pagamentos' ou 'ocorrencias' usando where() com o startDate e endDate.
+        // Ex: query(collection(db, 'pagamentos'), where('createdAt', '>=', Timestamp.fromDate(startDate)))
 
         const [condominiosSnap, usuariosSnap] = await Promise.all([
           getDocs(collection(db, 'condominios')),
@@ -57,12 +78,10 @@ export function useAdminDashboard(
 
         const isGlobal = selectedCondo === 'all';
 
-        // ✅ Filtrar condomínios conforme contexto
         const condominiosFiltrados = isGlobal
           ? condominios
           : condominios.filter((c) => c.id === selectedCondo);
 
-        // ✅ KPIs (fase atual do sistema)
         const kpiData: KPIData = {
           receitaTotal: 0,
           totalUnidades: condominiosFiltrados.reduce(
@@ -75,7 +94,6 @@ export function useAdminDashboard(
           usuariosAtivos: usuarios.length,
         };
 
-        // ✅ Converter status para o tipo do admin.ts
         const condominiosData: CondominioPerfomance[] =
           condominiosFiltrados.map((condo) => ({
             id: condo.id,
@@ -84,18 +102,16 @@ export function useAdminDashboard(
             moradores: 0,
             receita: 0,
             inadimplencia: 0,
-            status:
-              condo.data.status === 'active'
-                ? 'ativo'
-                : 'inativo',
+            status: condo.data.status === 'active' ? 'ativo' : 'inativo',
           }));
 
         const alertasData: AlertaDashboard[] = [];
 
         setData({
+          // 4. As datas são usadas para definir o período no estado
           periodo: {
-            dataInicio: new Date(),
-            dataFim: new Date(),
+            dataInicio: startDate,
+            dataFim: endDate,
           },
           kpis: kpiData,
           condominios: condominiosData,
@@ -120,7 +136,7 @@ export function useAdminDashboard(
     };
 
     fetchDashboard();
-  }, [selectedCondo]);
+  }, [startDate, endDate, selectedCondo]); // Dependências atualizadas
 
   return { data, loading, error };
 }

@@ -2,18 +2,26 @@
 
 'use client';
 
-import React, { useMemo } from 'react'; // 1. Importar o useMemo
+import React, { useMemo, useState } from 'react';
 import { useAdminDashboard } from '@/hooks/useAdminDashboard';
 import AdminKPIs from './AdminKPIs';
 import AdminCharts from './AdminCharts';
 
 export default function DashboardAdminContent() {
-  const { data, loading, error } = useAdminDashboard(
-    new Date(new Date().setFullYear(new Date().getFullYear() - 1)),
-    new Date()
-  );
+  // 1. Definir as datas de forma mais limpa e o condomínio selecionado
+  const [selectedCondo, setSelectedCondo] = useState<string>('all'); // Exemplo: 'all' para visão global
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setFullYear(endDate.getFullYear() - 1);
 
-  // 2. Memoizar cálculos derivados dos dados.
+  // 2. Chamar o hook com um único objeto, contendo as props necessárias
+  const { data, loading, error } = useAdminDashboard({
+    startDate,
+    endDate,
+    selectedCondo,
+  });
+
+  // Memoizar cálculos derivados dos dados.
   // Este valor só será recalculado se `data` mudar.
   const ocupacaoMedia = useMemo(() => {
     if (!data || !data.kpis || !data.condominios) return 0;
@@ -21,10 +29,10 @@ export default function DashboardAdminContent() {
     const totalUnidadesPossiveis = data.condominios.reduce(
       (sum, c) => sum + c.unidades, 0
     );
-    
+
     // Evita divisão por zero
-    if (totalUnidadesPossiveis === 0) return 0; 
-    
+    if (totalUnidadesPossiveis === 0) return 0;
+
     return (data.kpis.totalUnidades / totalUnidadesPossiveis) * 100;
   }, [data]);
 
@@ -48,11 +56,14 @@ export default function DashboardAdminContent() {
         </p>
       </div>
 
+      {/* TODO: Adicionar um seletor para mudar o `selectedCondo` */}
+      {/* <CondoSelector value={selectedCondo} onChange={setSelectedCondo} /> */}
+
       <AdminKPIs data={data?.kpis ?? null} isLoading={loading} />
 
       <AdminCharts
         receitaMensalData={data?.receitaMensalData ?? null}
-        ocupacaoMedia={ocupacaoMedia} // 3. Usar o valor memoizado
+        ocupacaoMedia={ocupacaoMedia}
         isLoading={loading}
       />
     </main>
