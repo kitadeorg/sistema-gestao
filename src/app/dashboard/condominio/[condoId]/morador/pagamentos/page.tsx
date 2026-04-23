@@ -52,7 +52,7 @@ export default function PagamentosPage() {
   if (authLoading || loading) return <div className="flex items-center justify-center p-8"><Loader2 className="w-8 h-8 animate-spin text-orange-500" /></div>;
 
   return (
-    <main className="p-6 lg:p-8 space-y-8 animate-in fade-in duration-500">
+    <main className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-8 animate-in fade-in duration-500">
       <Link href={`/dashboard/condominio/${condoId}/morador`} className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-900 transition">
         <ArrowLeft size={16} /> Voltar ao Painel
       </Link>
@@ -60,7 +60,7 @@ export default function PagamentosPage() {
       <div className="flex items-center gap-3">
         <DollarSign size={22} className="text-orange-500" />
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Meus Pagamentos</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">Meus Pagamentos</h1>
           <p className="text-sm text-zinc-500">Histórico de pagamentos</p>
         </div>
       </div>

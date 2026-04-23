@@ -106,12 +106,12 @@ export default function TarefasPage() {
   }
 
   return (
-    <main className="p-6 lg:p-8 space-y-8 animate-in fade-in duration-500">
+    <main className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-8 animate-in fade-in duration-500">
 
       <div className="flex items-center gap-3">
         <ClipboardList size={22} className="text-orange-500" />
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900">
+          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">
             Minhas Ocorrências
           </h1>
           <p className="text-sm text-zinc-500">

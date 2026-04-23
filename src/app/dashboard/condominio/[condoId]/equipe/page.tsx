@@ -167,14 +167,14 @@ export default function EquipePage() {
 
   return (
     <>
-      <main className="p-6 lg:p-8 space-y-8 animate-in fade-in duration-500">
+      <main className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-8 animate-in fade-in duration-500">
 
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-3">
             <UserCheck size={22} className="text-orange-500" />
             <div>
-              <h1 className="text-2xl font-bold text-zinc-900">Minha Equipa</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">Minha Equipa</h1>
               <p className="text-sm text-zinc-500 mt-0.5">
                 Funcionários associados a este condomínio
               </p>

@@ -17,11 +17,11 @@ export default function ConfiguracoesContent() {
   ];
 
   return (
-    <main className="p-6 lg:p-8 space-y-6 animate-in fade-in duration-300">
+    <main className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-6 animate-in fade-in duration-300">
 
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900">Configurações</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">Configurações</h1>
         <p className="text-sm text-zinc-500 mt-1">
           Gerir o seu perfil e preferências do sistema
         </p>

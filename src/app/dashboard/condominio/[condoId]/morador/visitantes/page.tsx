@@ -128,7 +128,7 @@ export default function VisitantesMoradorPage() {
   }
 
   return (
-    <main className="p-6 lg:p-8 space-y-8 animate-in fade-in duration-500">
+    <main className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-8 animate-in fade-in duration-500">
       {showModal && <Modal onClose={() => setShowModal(false)} onSave={handleSave} unidade={unidade} />}
 
       <Link 
@@ -145,7 +145,7 @@ export default function VisitantesMoradorPage() {
             <Users size={22} className="text-orange-600" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-zinc-900">Meus Visitantes</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">Meus Visitantes</h1>
             <p className="text-sm text-zinc-500">Gestão de acessos para a unidade: <span className="font-semibold text-zinc-700">{unidade}</span></p>
           </div>
         </div>

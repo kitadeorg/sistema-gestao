@@ -60,7 +60,7 @@ export default function InadimplenciaPage() {
   const taxaInadimplencia = inadimplentes.length;
 
   return (
-    <main className="p-6 lg:p-8 space-y-8 animate-in fade-in duration-500">
+    <main className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-8 animate-in fade-in duration-500">
 
       <Link href={`/dashboard/condominio/${condoId}`} className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-900 transition">
         <ArrowLeft size={16} /> Voltar ao Painel
@@ -69,7 +69,7 @@ export default function InadimplenciaPage() {
       <div className="flex items-center gap-3">
         <AlertTriangle size={22} className="text-orange-500" />
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Inadimplência</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">Inadimplência</h1>
           <p className="text-sm text-zinc-500">Moradores com pagamentos em atraso</p>
         </div>
       </div>
@@ -82,7 +82,7 @@ export default function InadimplenciaPage() {
         </div>
         <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
           <p className="text-sm text-zinc-500 mb-1">Inadimplentes</p>
-          <p className="text-2xl font-bold text-zinc-900">{taxaInadimplencia}</p>
+          <p className="text-xl sm:text-2xl font-bold text-zinc-900">{taxaInadimplencia}</p>
         </div>
         <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
           <p className="text-sm text-zinc-500 mb-1">Casos Críticos</p>

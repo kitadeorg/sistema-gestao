@@ -94,11 +94,11 @@ export default function MoradorPainelPage() {
   }
 
   return (
-    <main className="p-6 lg:p-8 space-y-8 animate-in fade-in duration-500">
+    <main className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-8 animate-in fade-in duration-500">
 
       {/* Cabeçalho */}
       <div>
-        <h1 className="text-2xl font-bold text-zinc-900">
+        <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">
           Bem-vindo, {userData?.nome?.split(' ')[0]} 👋
         </h1>
         <p className="text-sm text-zinc-500 mt-1">
@@ -112,7 +112,7 @@ export default function MoradorPainelPage() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
         <KPICard
           title="Minhas Quotas"
           value="Em dia"

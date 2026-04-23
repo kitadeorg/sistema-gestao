@@ -113,11 +113,11 @@ export default function UnidadesPage() {
   }
 
   return (
-    <main className="p-6 lg:p-8 space-y-6">
+    <main className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-6">
 
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-black">Unidades</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-black">Unidades</h1>
 
         <div className="flex items-center gap-3">
 

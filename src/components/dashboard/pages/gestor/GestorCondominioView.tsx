@@ -60,7 +60,7 @@ export default function GestorCondominioView({ condominioId }: Props) {
       <div>
         <div className="flex items-center gap-3">
           <Building2 size={20} className="text-orange-500" />
-          <h1 className="text-2xl font-bold text-zinc-900">
+          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">
             {condominio.nome}
           </h1>
         </div>
@@ -72,7 +72,7 @@ export default function GestorCondominioView({ condominioId }: Props) {
       </div>
 
       {resumo && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
 
           <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
             <p className="text-sm text-zinc-500">Receita Total</p>

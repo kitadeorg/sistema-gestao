@@ -49,7 +49,7 @@ function SkeletonCard() {
 
 function LoadingSkeleton() {
   return (
-    <div className="p-6 lg:p-8 space-y-8">
+    <div className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-8">
       <div className="h-10 w-64 bg-zinc-200 rounded-xl animate-pulse" />
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
         {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
@@ -447,7 +447,7 @@ export default function GestorContent() {
     const condominioAtual = condominiosGestor.find(c => c.id === selectedCondo);
 
     return (
-      <main className="p-6 lg:p-8 space-y-8 animate-in fade-in duration-300">
+      <main className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-8 animate-in fade-in duration-300">
         <IndividualHeader
           condominioNome={condominioAtual?.nome ?? 'Condomínio'}
           condominios={condominiosGestor}
@@ -468,7 +468,7 @@ export default function GestorContent() {
 
   /* ── MODO GLOBAL ── */
   return (
-    <main className="p-6 lg:p-8 space-y-8 animate-in fade-in duration-300">
+    <main className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-8 animate-in fade-in duration-300">
 
       {/* ① HEADER */}
       <GlobalHeader

@@ -23,8 +23,8 @@ const navItemVariants = cva(
       },
       // Variante para o estado 'collapsed' (responsividade)
       isCollapsed: {
-        true: 'justify-center rounded-lg w-12 h-12 p-0',
-        false: 'justify-between rounded-xl px-3 py-2.5',
+        true: 'justify-center rounded-lg w-10 h-10 p-0',
+        false: 'justify-between rounded-xl px-3 py-2',
       },
     },
     defaultVariants: {

@@ -49,7 +49,7 @@ export default function GestorKPIs({ condominios, periodo }: Props) {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm animate-pulse">
             <div className="h-6 w-32 bg-zinc-200 rounded mb-4" />
@@ -90,7 +90,7 @@ export default function GestorKPIs({ condominios, periodo }: Props) {
   ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
       {cards.map(card => (
         <div
           key={card.label}

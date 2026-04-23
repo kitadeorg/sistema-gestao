@@ -61,7 +61,7 @@ export default function ConfiguracoesPage() {
   if (!config) return <div className="p-8 text-red-500">Condomínio não encontrado.</div>;
 
   return (
-    <main className="p-6 lg:p-8 space-y-8 animate-in fade-in duration-500">
+    <main className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-8 animate-in fade-in duration-500">
 
       <Link href={`/dashboard/condominio/${condoId}`} className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-900 transition">
         <ArrowLeft size={16} /> Voltar ao Painel
@@ -71,7 +71,7 @@ export default function ConfiguracoesPage() {
         <div className="flex items-center gap-3">
           <Settings size={22} className="text-orange-500" />
           <div>
-            <h1 className="text-2xl font-bold text-zinc-900">Configurações</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">Configurações</h1>
             <p className="text-sm text-zinc-500">Dados e definições do condomínio</p>
           </div>
         </div>

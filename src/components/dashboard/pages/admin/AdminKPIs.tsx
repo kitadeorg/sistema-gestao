@@ -134,14 +134,14 @@ const kpiConfig: KpiConfigItem[] = [
 export default function AdminKPIs({ data, isLoading }: AdminKPIsProps) {
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {kpiConfig.map((_, index) => <KPISkeletonCard key={index} />)}
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {kpiConfig.map((config) => (
         <KPICard
           key={config.title}

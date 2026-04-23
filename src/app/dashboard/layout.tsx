@@ -21,23 +21,21 @@ function DashboardStructure({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen theme-bg-base">
-      {/* SIDEBAR PARA DESKTOP */}
+      {/* SIDEBAR PARA DESKTOP (≥1024px) */}
       <div
         className={cn(
           'hidden lg:flex lg:flex-shrink-0 transition-all duration-300',
-          isSidebarCollapsed ? 'w-20' : 'w-64',
-        )}
-      >
+          isSidebarCollapsed ? 'lg:w-16' : 'lg:w-60 xl:w-64',
+        )}      >
         <Sidebar isSidebarCollapsed={isSidebarCollapsed} />
       </div>
 
-      {/* SIDEBAR PARA MOBILE (Drawer) */}
+      {/* SIDEBAR PARA MOBILE/TABLET (<1024px) — Drawer */}
       {isSidebarOpen && (
         <div className="fixed inset-0 z-40 flex lg:hidden">
-          <div className="w-64 flex-shrink-0 theme-bg-surface border-r theme-border">
+          <div className="w-64 max-w-[80vw] flex-shrink-0 theme-bg-surface border-r theme-border">
             <Sidebar />
           </div>
-
           <div
             onClick={toggleSidebar}
             className="flex-shrink-0 flex-1 bg-black/40 backdrop-blur-sm"
@@ -47,9 +45,9 @@ function DashboardStructure({ children }: { children: ReactNode }) {
       )}
 
       {/* ÁREA DE CONTEÚDO PRINCIPAL */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden theme-bg-base">
+      <div className="flex-1 flex flex-col min-h-screen overflow-hidden theme-bg-base">
         <Topbar />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 theme-bg-base">
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-4 lg:p-6 xl:p-8 theme-bg-base">
           {children}
         </main>
       </div>

@@ -48,7 +48,7 @@ function KPICard({
         <p className="text-sm text-zinc-500">{title}</p>
         <div className="p-2 bg-zinc-50 rounded-xl">{icon}</div>
       </div>
-      <h3 className="text-2xl font-bold text-zinc-900">{value}</h3>
+      <h3 className="text-xl sm:text-2xl font-bold text-zinc-900">{value}</h3>
       {trend && (
         <div className="flex items-center gap-1 mt-2">
           {trendUp
@@ -124,14 +124,14 @@ export default function DashboardSindicoContent() {
       : 0;
 
   return (
-    <main className="p-6 lg:p-8 space-y-8 animate-in fade-in duration-500">
+    <main className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-8 animate-in fade-in duration-500">
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-3">
             <Building2 size={22} className="text-orange-500" />
-            <h1 className="text-3xl font-bold text-zinc-900">{condominio.nome}</h1>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-zinc-900">{condominio.nome}</h1>
           </div>
           <div className="flex items-center gap-2 text-sm text-zinc-500 mt-2">
             <MapPin size={14} />
@@ -149,7 +149,7 @@ export default function DashboardSindicoContent() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
         <KPICard
           title="Receita Total"
           value={resumo ? formatCurrency(resumo.receitaTotal) : '0.0k Kz'}

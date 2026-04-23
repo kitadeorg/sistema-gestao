@@ -276,7 +276,7 @@ export default function SistemaTab() {
           </div>
           <div>
             <p className={cn('text-sm font-semibold', prefs.tema === 'escuro' ? 'text-zinc-100' : 'text-zinc-900')}>
-              MULTI.GEST
+              NETSUL<span className='text-orange-400'>CONDO</span>
             </p>
             <p className={cn('text-xs', prefs.tema === 'escuro' ? 'text-zinc-400' : 'text-zinc-500')}>
               Tema: {prefs.tema === 'claro' ? 'Claro' : prefs.tema === 'escuro' ? 'Escuro' : 'Sistema'}

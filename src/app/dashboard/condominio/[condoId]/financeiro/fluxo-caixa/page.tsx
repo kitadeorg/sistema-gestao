@@ -78,7 +78,7 @@ export default function FluxoCaixaPage() {
 
   if (!podeVerFinanceiro) {
     return (
-      <main className="p-6 lg:p-8 text-center text-zinc-500">
+      <main className="p-3 sm:p-4 lg:p-6 xl:p-8 text-center text-zinc-500">
         Sem permissão para visualizar o fluxo de caixa.
       </main>
     );
@@ -95,7 +95,7 @@ export default function FluxoCaixaPage() {
   const saldo = totalReceitas - totalDespesas;
 
   return (
-    <main className="p-6 lg:p-8 space-y-8">
+    <main className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-8">
 
       <Link
         href={`/dashboard/condominio/${condoId}`}
@@ -105,7 +105,7 @@ export default function FluxoCaixaPage() {
       </Link>
 
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-zinc-900">Fluxo de Caixa</h1>
+        <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">Fluxo de Caixa</h1>
 
         {podeCriarTransacao && (
           <button className="inline-flex items-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white text-sm font-medium rounded-xl transition-colors shadow-sm">

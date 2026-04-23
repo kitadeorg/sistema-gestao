@@ -128,14 +128,14 @@ const CondominioSidePanel: React.FC<SidePanelProps> = ({ isOpen, onClose, onSucc
         <>
             <motion.div key="overlay" variants={overlayVariants} initial="hidden" animate="visible" exit="hidden" transition={{ duration: 0.3, ease: 'easeInOut' }} className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
             
-            <motion.div key="panel" variants={panelVariants} initial="hidden" animate="visible" exit="hidden" transition={{ duration: 0.4, ease: [0.25, 1, 0.5, 1] }} className="fixed top-0 right-0 h-full w-full max-w-lg bg-white shadow-2xl z-50">
+            <motion.div key="panel" variants={panelVariants} initial="hidden" animate="visible" exit="hidden" transition={{ duration: 0.4, ease: [0.25, 1, 0.5, 1] }} className="fixed top-0 right-0 h-full w-full sm:max-w-md lg:max-w-lg bg-white shadow-2xl z-50">
                 <form onSubmit={handleSubmit} className="h-full flex flex-col">
-                    <div className="flex justify-between items-center p-6 border-b border-gray-200">
-                        <h2 className="text-xl font-bold text-gray-800">{isEditMode ? 'Editar Condomínio' : 'Novo Condomínio'}</h2>
+                    <div className="flex justify-between items-center p-4 sm:p-6 border-b border-gray-200">
+                        <h2 className="text-base sm:text-xl font-bold text-gray-800">{isEditMode ? 'Editar Condomínio' : 'Novo Condomínio'}</h2>
                         <button type="button" onClick={onClose} className="p-2 rounded-full text-gray-500 hover:bg-gray-100 hover:text-gray-800 transition-colors"><X size={20} /></button>
                     </div>
 
-                    <div className="flex-grow p-6 overflow-y-auto space-y-6 scrollbar-thin scrollbar-thumb-zinc-300 scrollbar-track-transparent">
+                    <div className="flex-grow p-4 sm:p-6 overflow-y-auto space-y-4 sm:space-y-6 scrollbar-thin scrollbar-thumb-zinc-300 scrollbar-track-transparent">
                         
                         <h3 className="text-lg font-semibold text-gray-900">Logo do Condomínio</h3>
                         <div className="flex items-center gap-5">
@@ -196,7 +196,7 @@ const CondominioSidePanel: React.FC<SidePanelProps> = ({ isOpen, onClose, onSucc
                         </div>
                     </div>
 
-                    <div className="p-6 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+                    <div className="p-4 sm:p-6 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
                         <button type="button" onClick={onClose} className="px-4 py-2.5 rounded-xl border border-zinc-200 text-sm font-semibold bg-white hover:bg-zinc-50 transition-colors">Cancelar</button>
                         <button type="submit" disabled={isSaving} className="px-4 py-2.5 rounded-xl bg-zinc-900 text-white text-sm font-semibold hover:bg-zinc-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                             {isSaving ? 'A guardar...' : 'Guardar Alterações'}

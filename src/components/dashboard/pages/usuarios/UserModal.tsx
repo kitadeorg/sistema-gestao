@@ -328,11 +328,11 @@ export default function UserModal({ user, onClose, onSuccess }: UserModalProps) 
       />
 
       {/* Modal */}
-      <div className="absolute inset-0 flex items-center justify-center p-4">
+      <div className="absolute inset-0 flex items-end sm:items-center justify-center p-0 sm:p-4">
         <div
           role="dialog"
           aria-modal="true"
-          className="w-full max-w-xl rounded-2xl border border-zinc-200 bg-white shadow-2xl overflow-hidden"
+          className="w-full sm:max-w-xl rounded-t-2xl sm:rounded-2xl border border-zinc-200 bg-white shadow-2xl overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}

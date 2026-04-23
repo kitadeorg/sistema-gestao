@@ -55,7 +55,7 @@ export default function RelatoriosPage() {
   ];
 
   return (
-    <main className="p-6 lg:p-8 space-y-8 animate-in fade-in duration-500">
+    <main className="p-3 sm:p-4 lg:p-6 xl:p-8 space-y-8 animate-in fade-in duration-500">
 
       <Link href={`/dashboard/condominio/${condoId}`} className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-900 transition">
         <ArrowLeft size={16} /> Voltar ao Painel
@@ -64,7 +64,7 @@ export default function RelatoriosPage() {
       <div className="flex items-center gap-3">
         <FileText size={22} className="text-orange-500" />
         <div>
-          <h1 className="text-2xl font-bold text-zinc-900">Relatórios</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">Relatórios</h1>
           <p className="text-sm text-zinc-500">Gera e exporta relatórios do condomínio</p>
         </div>
       </div>

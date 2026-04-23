@@ -441,7 +441,7 @@ export default function AuthPage() {
         </div>
 
         {/* ── Painel direito (formulário) ── */}
-        <div className="w-full md:w-1/2 p-8 sm:p-12 flex flex-col
+        <div className="w-full md:w-1/2 p-5 sm:p-8 lg:p-12 flex flex-col
                         justify-center overflow-y-auto">
 
           {/* Mobile logo */}

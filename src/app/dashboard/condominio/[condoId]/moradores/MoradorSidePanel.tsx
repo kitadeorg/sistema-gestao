@@ -112,10 +112,10 @@ export default function MoradorSidePanel({
         onClick={() => !loading && onClose()}
       />
 
-      <div className="w-full max-w-lg bg-white h-full shadow-xl flex flex-col">
+      <div className="w-full sm:max-w-md lg:max-w-lg bg-white h-full shadow-xl flex flex-col">
 
-        <div className="flex items-center justify-between p-6 border-b border-zinc-200">
-          <h2 className="text-lg font-semibold text-zinc-900">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-zinc-200">
+          <h2 className="text-base sm:text-lg font-semibold text-zinc-900">
             Novo Morador
           </h2>
           <button onClick={() => !loading && onClose()}>
@@ -123,7 +123,7 @@ export default function MoradorSidePanel({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
 
           <select
             value={form.unidadeId}
@@ -185,8 +185,7 @@ export default function MoradorSidePanel({
 
         </div>
 
-        <div className="p-6 border-t border-zinc-200">
-
+        <div className="p-4 sm:p-6 border-t border-zinc-200">
           {podeCriar && (
             <button
               onClick={handleSubmit}
@@ -197,7 +196,6 @@ export default function MoradorSidePanel({
               {loading ? 'A guardar...' : 'Criar Morador'}
             </button>
           )}
-
         </div>
 
       </div>

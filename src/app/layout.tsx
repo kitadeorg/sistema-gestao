@@ -18,6 +18,12 @@ export const metadata: Metadata = {
   description: "Sistema de gestão de condomínios",
 };
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{

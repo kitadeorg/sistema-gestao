@@ -162,10 +162,10 @@ export default function FuncionarioSidePanel({
       />
 
       {/* Panel */}
-      <aside className="fixed right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
+      <aside className="fixed right-0 top-0 h-full w-full sm:max-w-sm md:max-w-md bg-white shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
 
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-100">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 sm:py-5 border-b border-zinc-100">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-orange-50 rounded-xl">
               <UserCheck size={18} className="text-orange-500" />
@@ -186,7 +186,7 @@ export default function FuncionarioSidePanel({
         </div>
 
         {/* Conteúdo */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-6 space-y-5">
 
           {/* Erro de API */}
           {apiError && (
@@ -280,7 +280,7 @@ export default function FuncionarioSidePanel({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-zinc-100 flex gap-3">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-t border-zinc-100 flex gap-3">
             <button
               onClick={onClose}
               className="flex-1 px-4 py-2.5 text-sm font-medium text-zinc-600 border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors"

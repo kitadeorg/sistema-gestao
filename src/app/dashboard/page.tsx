@@ -53,7 +53,7 @@ export default function DashboardPage() {
       return (
         <div className="flex-1 flex items-center justify-center p-6">
           <div className="text-center">
-            <h1 className="text-2xl font-bold text-zinc-900">Role desconhecido</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">Role desconhecido</h1>
             <p className="text-zinc-500">O seu perfil ({userData.role}) não possui uma interface definida.</p>
           </div>
         </div>

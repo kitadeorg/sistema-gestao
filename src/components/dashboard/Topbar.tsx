@@ -79,7 +79,7 @@ export function Topbar() {
   }
 
   return (
-    <header className="h-20 theme-bg-surface backdrop-blur-md sticky top-0 z-30 px-4 sm:px-8 flex items-center justify-between border-b theme-border-soft" style={{ backgroundColor: 'var(--bg-surface)' }}>
+    <header className="h-14 sm:h-16 theme-bg-surface backdrop-blur-md sticky top-0 z-30 px-3 sm:px-5 lg:px-8 flex items-center justify-between border-b theme-border-soft" style={{ backgroundColor: 'var(--bg-surface)' }}>
 
       {/* ── LADO ESQUERDO ── */}
       <div className="flex items-center gap-3">
