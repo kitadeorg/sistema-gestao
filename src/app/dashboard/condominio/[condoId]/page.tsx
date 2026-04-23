@@ -1,167 +1,165 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/firebase';
-import { ArrowLeft, Building2, MapPin } from 'lucide-react';
-import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { deleteUnidade, deleteMultipleUnidades } from '@/lib/firebase/unidades';
+import UnidadeSidePanel from '@/app/dashboard/condominio/[condoId]/unidades/[unitId]/UnidadeSidePanel';
+import UnidadesGrid from '@/components/dashboard/pages/unidades/UnidadesGrid';
+import { useUnidades } from '@/hooks/useUnidades';
+import { Plus, Trash2, AlertCircle } from 'lucide-react';
+import { can } from '@/lib/permissions/permissionMatrix';
+import { toast } from 'sonner';
 
-interface CondominioData {
-  nome: string;
-  status: 'active' | 'inactive';
-  endereco?: {
-    cidade?: string;
-    provincia?: string;
-  };
-  totalUnidades?: number;
-}
+export default function UnidadesPage() {
+  const { userData, currentCondominioId } = useAuthContext();
+  const role = userData?.role;
 
-export default function CondominioPage() {
-  const params = useParams();
-  const condoId = params?.condoId as string;
+  // ✅ Usa currentCondominioId do contexto em vez de params
+  const condoId = currentCondominioId ?? '';
 
-  const [condominio, setCondominio] = useState<CondominioData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const {
+    unidades,
+    moradoresMap,
+    financeiroMap,
+    loading,
+    refresh,
+  } = useUnidades(condoId);
 
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [editingUnidade, setEditingUnidade] = useState<any | null>(null);
+  const [selected, setSelected] = useState<string[]>([]);
+
+  // Reset selection quando muda de condomínio
   useEffect(() => {
-    if (!condoId) return;
-
-    const fetchCondominio = async () => {
-      try {
-        const docRef = doc(db, 'condominios', condoId);
-        const snapshot = await getDoc(docRef);
-
-        if (snapshot.exists()) {
-          setCondominio(snapshot.data() as CondominioData);
-        }
-      } catch (error) {
-        console.error('Erro ao carregar condomínio:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCondominio();
+    setSelected([]);
   }, [condoId]);
 
-  if (loading) {
+  const podeCriar   = role ? can(role, 'create', 'unidade') : false;
+  const podeEditar  = role ? can(role, 'update', 'unidade') : false;
+  const podeExcluir = role ? can(role, 'delete', 'unidade') : false;
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const selectAll = () => {
+    setSelected(selected.length === unidades.length ? [] : unidades.map(u => u.id));
+  };
+
+  const handleDeleteSingle = async (id: string) => {
+    if (!podeExcluir) return;
+    toast('Eliminar unidade?', {
+      action: {
+        label: 'Eliminar',
+        onClick: async () => {
+          await deleteUnidade(id, condoId);
+          toast.success('Unidade eliminada.');
+          refresh();
+        },
+      },
+      cancel: { label: 'Cancelar', onClick: () => {} },
+      duration: 6000,
+    });
+  };
+
+  const handleDeleteMultiple = async () => {
+    if (!podeExcluir || selected.length === 0) return;
+    toast(`Eliminar ${selected.length} unidades?`, {
+      action: {
+        label: 'Eliminar',
+        onClick: async () => {
+          await deleteMultipleUnidades(selected, condoId);
+          toast.success(`${selected.length} unidades eliminadas.`);
+          setSelected([]);
+          refresh();
+        },
+      },
+      cancel: { label: 'Cancelar', onClick: () => {} },
+      duration: 6000,
+    });
+  };
+
+  const handleEdit = (unidade: any) => {
+    if (!podeEditar) return;
+    setEditingUnidade(unidade);
+    setPanelOpen(true);
+  };
+
+  if (!condoId) {
     return (
-      <div className="p-8 text-zinc-500">
-        A carregar condomínio...
+      <div className="flex flex-col items-center justify-center h-96 gap-4">
+        <AlertCircle className="w-12 h-12 text-orange-400" />
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-zinc-800">Nenhum condomínio selecionado</h3>
+          <p className="text-sm text-zinc-500 mt-1">Selecione um condomínio no menu superior</p>
+        </div>
       </div>
     );
   }
 
-  if (!condominio) {
+  if (loading) {
     return (
-      <div className="p-8 text-red-500">
-        Condomínio não encontrado.
+      <div className="flex items-center justify-center h-48">
+        <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <main className="p-6 lg:p-8 space-y-8 animate-in fade-in duration-500">
-
-      {/* Voltar */}
-      <Link
-        href="/dashboard"
-        className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-900 transition"
-      >
-        <ArrowLeft size={16} />
-        Voltar ao Dashboard
-      </Link>
-
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-
-        <div>
-          <div className="flex items-center gap-3">
-            <Building2 size={22} className="text-orange-500" />
-            <h1 className="text-3xl font-bold text-zinc-900">
-              {condominio.nome}
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-3 text-sm text-zinc-500 mt-2">
-            <MapPin size={14} />
-            {condominio.endereco?.cidade ?? 'Cidade não definida'}
-            {condominio.endereco?.provincia && `, ${condominio.endereco.provincia}`}
-          </div>
+    <main className="p-6 lg:p-8 space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-black">Unidades</h1>
+        <div className="flex items-center gap-3">
+          {podeExcluir && selected.length > 0 && (
+            <button
+              onClick={handleDeleteMultiple}
+              className="inline-flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-xl text-sm hover:bg-red-700 transition"
+            >
+              <Trash2 size={16} />
+              Eliminar ({selected.length})
+            </button>
+          )}
+          {podeCriar && (
+            <button
+              onClick={() => { setEditingUnidade(null); setPanelOpen(true); }}
+              className="inline-flex items-center gap-2 bg-zinc-900 text-white px-4 py-2 rounded-xl text-sm hover:bg-zinc-800 transition"
+            >
+              <Plus size={16} />
+              Nova Unidade
+            </button>
+          )}
         </div>
-
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-medium ${
-            condominio.status === 'active'
-              ? 'bg-emerald-50 text-emerald-600'
-              : 'bg-red-50 text-red-600'
-          }`}
-        >
-          {condominio.status === 'active' ? 'Ativo' : 'Inativo'}
-        </span>
-
       </div>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-
-        <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
-          <p className="text-sm text-zinc-500">Unidades</p>
-          <h3 className="text-2xl font-bold mt-2">
-            {condominio.totalUnidades ?? 0}
-          </h3>
-        </div>
-
-        <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
-          <p className="text-sm text-zinc-500">Moradores</p>
-          <h3 className="text-2xl font-bold mt-2">0</h3>
-        </div>
-
-        <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
-          <p className="text-sm text-zinc-500">Receita</p>
-          <h3 className="text-2xl font-bold mt-2">0.0k Kz</h3>
-        </div>
-
-        <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
-          <p className="text-sm text-zinc-500">Inadimplência</p>
-          <h3 className="text-2xl font-bold mt-2">0.0%</h3>
-        </div>
-
+      <div className="flex items-center gap-2 text-sm text-zinc-600">
+        <input
+          type="checkbox"
+          checked={unidades.length > 0 && selected.length === unidades.length}
+          onChange={selectAll}
+        />
+        Selecionar todos
       </div>
 
-      {/* Navegação de Módulos */}
-      <div className="flex flex-wrap gap-3 border-b border-zinc-200 pb-3">
+      <UnidadesGrid
+        unidades={unidades}
+        moradoresMap={moradoresMap}
+        financeiroMap={financeiroMap}
+        selected={selected}
+        toggleSelect={toggleSelect}
+        handleEdit={podeEditar ? handleEdit : () => {}}
+        handleDeleteSingle={podeExcluir ? handleDeleteSingle : () => {}}
+        condoId={condoId}
+      />
 
-        <Link
-          href={`/dashboard/condominio/${condoId}/unidades`}
-          className="px-4 py-2 rounded-xl text-sm font-medium bg-zinc-900 text-white"
-        >
-          Unidades
-        </Link>
-
-        <Link
-  href={`/dashboard/condominio/${condoId}/moradores`}
-  className="px-4 py-2 rounded-xl text-sm font-medium bg-zinc-900 text-white"
->
-  Moradores
-</Link>
-
-        <button className="px-4 py-2 rounded-xl text-sm font-medium bg-zinc-100 text-zinc-500 cursor-not-allowed">
-          Financeiro
-        </button>
-
-        <button className="px-4 py-2 rounded-xl text-sm font-medium bg-zinc-100 text-zinc-500 cursor-not-allowed">
-          Ocorrências
-        </button>
-
-      </div>
-
-      {/* Placeholder */}
-      <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm text-zinc-500 text-center">
-        Selecione um módulo acima para gerir o condomínio.
-      </div>
-
+      <UnidadeSidePanel
+        isOpen={panelOpen}
+        condominioId={condoId}
+        unidade={editingUnidade}
+        onClose={() => { setPanelOpen(false); setEditingUnidade(null); }}
+        onSuccess={refresh}
+      />
     </main>
   );
 }

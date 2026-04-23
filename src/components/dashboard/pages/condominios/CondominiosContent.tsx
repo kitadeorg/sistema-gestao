@@ -15,6 +15,7 @@ import {
   deleteCondominio,
   toggleCondominioStatus,
 } from '@/lib/firebase/condominios';
+import { toast } from 'sonner';
 
 import CondominiosTable from './CondominiosList';
 import CondominioSidePanel from './CondominioSidePanel';
@@ -104,13 +105,24 @@ export default function CondominiosContent() {
 
   const handleDelete = async (id: string) => {
     if (!canEdit) return;
-    if (!confirm('Tem a certeza que deseja eliminar este condomínio? Isto não pode ser desfeito.')) return;
-    try {
-      await deleteCondominio(id);
-      await fetchCondominios();
-    } catch (err) {
-      console.error('Erro ao eliminar condomínio:', err);
-    }
+    toast('Eliminar condomínio?', {
+      description: 'Esta acção não pode ser desfeita.',
+      action: {
+        label: 'Eliminar',
+        onClick: async () => {
+          try {
+            await deleteCondominio(id);
+            await fetchCondominios();
+            toast.success('Condomínio eliminado com sucesso.');
+          } catch (err) {
+            console.error('Erro ao eliminar condomínio:', err);
+            toast.error('Erro ao eliminar condomínio.');
+          }
+        },
+      },
+      cancel: { label: 'Cancelar', onClick: () => {} },
+      duration: 6000,
+    });
   };
 
   const handleToggleStatus = async (id: string, status: 'active' | 'inactive') => {
@@ -118,8 +130,10 @@ export default function CondominiosContent() {
     try {
       await toggleCondominioStatus(id, status);
       await fetchCondominios();
+      toast.success('Estado do condomínio actualizado.');
     } catch (err) {
       console.error('Erro ao alternar status:', err);
+      toast.error('Erro ao actualizar estado do condomínio.');
     }
   };
 

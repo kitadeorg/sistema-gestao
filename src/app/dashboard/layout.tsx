@@ -4,6 +4,7 @@
 import React, { ReactNode } from 'react';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { DashboardProvider, useDashboardContext } from '@/contexts/DashboardContext';
+import { UserPreferencesProvider } from '@/contexts/UserPreferencesContext';
 import { Sidebar } from '@/components/dashboard/sidebar/Sidebar';
 import { Topbar } from '@/components/dashboard/Topbar';
 import { cn } from '@/lib/utils';
@@ -19,7 +20,7 @@ function DashboardStructure({ children }: { children: ReactNode }) {
   const { isSidebarOpen, toggleSidebar, isSidebarCollapsed } = useDashboardContext();
 
   return (
-    <div className="flex min-h-screen bg-white">
+    <div className="flex min-h-screen theme-bg-base">
       {/* SIDEBAR PARA DESKTOP */}
       <div
         className={cn(
@@ -33,7 +34,7 @@ function DashboardStructure({ children }: { children: ReactNode }) {
       {/* SIDEBAR PARA MOBILE (Drawer) */}
       {isSidebarOpen && (
         <div className="fixed inset-0 z-40 flex lg:hidden">
-          <div className="w-64 flex-shrink-0 bg-white border-r border-zinc-200">
+          <div className="w-64 flex-shrink-0 theme-bg-surface border-r theme-border">
             <Sidebar />
           </div>
 
@@ -46,9 +47,9 @@ function DashboardStructure({ children }: { children: ReactNode }) {
       )}
 
       {/* ÁREA DE CONTEÚDO PRINCIPAL */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden bg-white">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden theme-bg-base">
         <Topbar />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-white">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 theme-bg-base">
           {children}
         </main>
       </div>
@@ -63,7 +64,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <AuthProvider>
       <DashboardProvider>
-        <DashboardStructure>{children}</DashboardStructure>
+        <UserPreferencesProvider>
+          <DashboardStructure>{children}</DashboardStructure>
+        </UserPreferencesProvider>
       </DashboardProvider>
     </AuthProvider>
   );

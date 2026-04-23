@@ -39,8 +39,7 @@ export function Sidebar({ isSidebarCollapsed = false }: SidebarProps) {
     <aside
       className={cn(
         'h-full w-full flex flex-col overflow-hidden',
-        // sempre branco (não depende de dark mode)
-        'bg-white text-zinc-900 border-r border-zinc-200',
+        'theme-bg-surface theme-text border-r theme-border',
       )}
     >
       <div className="h-px bg-gradient-to-r from-transparent via-orange-400/30 to-transparent" />
@@ -73,8 +72,7 @@ function SidebarSkeleton({ isCollapsed }: { isCollapsed: boolean }) {
     <aside
       className={cn(
         'h-full w-full flex flex-col overflow-hidden',
-        // sempre branco (não depende de dark mode)
-        'bg-white text-zinc-900 border-r border-zinc-200',
+        'theme-bg-surface theme-text border-r theme-border',
       )}
     >
       <div className="h-px bg-gradient-to-r from-transparent via-orange-400/30 to-transparent" />

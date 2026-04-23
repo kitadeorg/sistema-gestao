@@ -1,79 +1,193 @@
 @import "tailwindcss";
 
+/* ── TEMA CLARO (padrão) ── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  /* Azul suave para o fundo do dashboard se quiser fugir do branco puro */
-  --dashboard-bg: #f8fafc; 
+  --bg-base:       #f8fafc;
+  --bg-surface:    #ffffff;
+  --bg-subtle:     #f4f4f5;
+  --bg-muted:      #e4e4e7;
+  --border-soft:   #e4e4e7;
+  --border-main:   #d4d4d8;
+  --text-primary:  #09090b;
+  --text-secondary:#52525b;
+  --text-muted:    #71717a;
+  --text-faint:    #a1a1aa;
+  --shadow-card:   0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-lg:     0 10px 40px rgba(0,0,0,0.10);
+}
+
+/* ── TEMA ESCURO ── */
+.dark {
+  --bg-base:       #0a0a0a;
+  --bg-surface:    #141414;
+  --bg-subtle:     #1c1c1c;
+  --bg-muted:      #262626;
+  --border-soft:   #262626;
+  --border-main:   #333333;
+  --text-primary:  #fafafa;
+  --text-secondary:#a1a1aa;
+  --text-muted:    #71717a;
+  --text-faint:    #52525b;
+  --shadow-card:   0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-lg:     0 10px 40px rgba(0,0,0,0.6);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg-base);
+  --color-foreground: var(--text-primary);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  
-  /* Ajuste de border-radius para um look mais limpo */
   --radius-xl: 0.75rem;
   --radius-2xl: 1rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-    --dashboard-bg: #0f172a;
-  }
-}
-
-/* CONFIGURAÇÃO DE ESCALA 
-  Reduzimos o font-size global para 93.75% (15px) 
-  Isso faz com que todos os 'rems' do Tailwind diminuam proporcionalmente.
-*/
 html {
   font-size: 93.75%;
   scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--bg-base);
+  color: var(--text-primary);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-/* CLASSE UTILITÁRIA PARA O CONTEÚDO 
-  Aplique esta classe na sua <main> ou na div que envolve o conteúdo das páginas
-*/
+/* ── CLASSES SEMÂNTICAS DE TEMA ── */
+/* Usadas no layout e componentes em vez de bg-white/text-zinc-* hardcoded */
+
+.theme-bg-base    { background-color: var(--bg-base) !important; }
+.theme-bg-surface { background-color: var(--bg-surface) !important; }
+.theme-bg-subtle  { background-color: var(--bg-subtle) !important; }
+.theme-bg-muted   { background-color: var(--bg-muted) !important; }
+.theme-border     { border-color: var(--border-main) !important; }
+.theme-border-soft{ border-color: var(--border-soft) !important; }
+.theme-text       { color: var(--text-primary) !important; }
+.theme-text-2     { color: var(--text-secondary) !important; }
+.theme-text-muted { color: var(--text-muted) !important; }
+.theme-shadow     { box-shadow: var(--shadow-card) !important; }
+
+/* ── DARK MODE — overrides globais para componentes Tailwind existentes ── */
+/* Cobre todos os elementos que usam classes hardcoded */
+
+.dark * {
+  border-color: var(--border-soft);
+}
+
+.dark [class*="bg-white"] {
+  background-color: var(--bg-surface) !important;
+}
+.dark [class*="bg-zinc-50"] {
+  background-color: var(--bg-subtle) !important;
+}
+.dark [class*="bg-zinc-100"] {
+  background-color: var(--bg-muted) !important;
+}
+.dark [class*="bg-zinc-200"] {
+  background-color: #2e2e2e !important;
+}
+.dark [class*="border-zinc-100"],
+.dark [class*="border-zinc-200"] {
+  border-color: var(--border-main) !important;
+}
+.dark [class*="text-zinc-900"],
+.dark [class*="text-zinc-800"] {
+  color: var(--text-primary) !important;
+}
+.dark [class*="text-zinc-700"],
+.dark [class*="text-zinc-600"] {
+  color: var(--text-secondary) !important;
+}
+.dark [class*="text-zinc-500"],
+.dark [class*="text-zinc-400"] {
+  color: var(--text-muted) !important;
+}
+.dark [class*="text-black"] {
+  color: var(--text-primary) !important;
+}
+.dark [class*="text-gray-800"],
+.dark [class*="text-gray-900"] {
+  color: var(--text-primary) !important;
+}
+.dark [class*="text-gray-600"],
+.dark [class*="text-gray-700"] {
+  color: var(--text-secondary) !important;
+}
+.dark [class*="text-gray-500"],
+.dark [class*="text-gray-400"] {
+  color: var(--text-muted) !important;
+}
+.dark [class*="bg-gray-50"],
+.dark [class*="bg-gray-100"] {
+  background-color: var(--bg-subtle) !important;
+}
+.dark [class*="bg-gray-200"] {
+  background-color: var(--bg-muted) !important;
+}
+.dark [class*="border-gray-100"],
+.dark [class*="border-gray-200"],
+.dark [class*="border-gray-300"] {
+  border-color: var(--border-main) !important;
+}
+
+/* Inputs e selects */
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: var(--bg-subtle) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-main) !important;
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: var(--text-faint) !important;
+}
+
+/* Backdrop/overlay */
+.dark [class*="bg-white/80"],
+.dark [class*="bg-white/90"] {
+  background-color: rgba(20,20,20,0.85) !important;
+}
+
+/* Shadows */
+.dark [class*="shadow-sm"] {
+  box-shadow: var(--shadow-card) !important;
+}
+.dark [class*="shadow-xl"],
+.dark [class*="shadow-2xl"] {
+  box-shadow: var(--shadow-lg) !important;
+}
+
+/* ── SEM ANIMAÇÕES ── */
+.no-animations *,
+.no-animations *::before,
+.no-animations *::after {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+}
+
+/* ── DENSIDADE ── */
+.density-compact  { --spacing-factor: 0.75; }
+.density-normal   { --spacing-factor: 1; }
+.density-spacious { --spacing-factor: 1.25; }
+
 .content-container {
   width: 100%;
-  max-width: 1400px; /* Impede que a tela estique demais em monitores UltraWide */
+  max-width: 1400px;
   margin-left: auto;
   margin-right: auto;
-  padding: 1.5rem; /* Espaçamento interno padrão */
+  padding: 1.5rem;
 }
 
-/* Ajuste fino para tabelas e inputs ficarem mais densos */
 input, select, button {
   @apply transition-all duration-200;
 }
 
-/* Scrollbar personalizada para não ocupar muito espaço visual */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
-}
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+.dark ::-webkit-scrollbar-thumb { background: #3f3f3f; }
+.dark ::-webkit-scrollbar-thumb:hover { background: #555; }

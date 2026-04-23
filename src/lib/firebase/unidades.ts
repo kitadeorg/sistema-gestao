@@ -1,10 +1,10 @@
 import { db } from './firebase';
+import { withCondominioFilter } from './queryFilters';
 import {
   collection,
   addDoc,
   getDocs,
   query,
-  where,
   deleteDoc,
   doc,
   serverTimestamp,
@@ -31,18 +31,23 @@ export interface UnidadeInput {
 }
 
 /* =====================================================
-   ✅ BUSCAR UNIDADES
+   ✅ BUSCAR UNIDADES (SEGURA MULTI-TENANT)
 ===================================================== */
 
-export const getUnidadesByCondominio = async (
-  condominioId: string
+export const getUnidades = async (
+  condominioId: string | null,
+  isAdmin: boolean
 ) => {
-  const q = query(
-    unidadesCollection,
-    where('condominioId', '==', condominioId)
+
+  const baseQuery = query(unidadesCollection);
+
+  const safeQuery = withCondominioFilter(
+    baseQuery,
+    condominioId,
+    isAdmin
   );
 
-  const snapshot = await getDocs(q);
+  const snapshot = await getDocs(safeQuery);
 
   return snapshot.docs.map((doc) => ({
     id: doc.id,
@@ -58,6 +63,7 @@ export const createUnidade = async (
   condominioId: string,
   data: UnidadeInput
 ) => {
+
   await addDoc(unidadesCollection, {
     condominioId,
     numero: data.numero,
@@ -88,6 +94,7 @@ export const updateUnidade = async (
   condominioId: string,
   data: UnidadeInput
 ) => {
+
   const unidadeRef = doc(db, 'unidades', id);
 
   await updateDoc(unidadeRef, {
@@ -117,7 +124,9 @@ export const deleteUnidade = async (
   id: string,
   condominioId: string
 ) => {
+
   await deleteDoc(doc(db, 'unidades', id));
+
   await atualizarTotalUnidades(condominioId);
 };
 
@@ -129,6 +138,7 @@ export const deleteMultipleUnidades = async (
   ids: string[],
   condominioId: string
 ) => {
+
   for (const id of ids) {
     await deleteDoc(doc(db, 'unidades', id));
   }
@@ -137,18 +147,22 @@ export const deleteMultipleUnidades = async (
 };
 
 /* =====================================================
-   ✅ ATUALIZAR TOTAL DE UNIDADES NO CONDOMÍNIO
+   ✅ ATUALIZAR TOTAL DE UNIDADES (BLINDADO)
 ===================================================== */
 
 const atualizarTotalUnidades = async (
   condominioId: string
 ) => {
-  const q = query(
-    unidadesCollection,
-    where('condominioId', '==', condominioId)
+
+  const baseQuery = query(unidadesCollection);
+
+  const safeQuery = withCondominioFilter(
+    baseQuery,
+    condominioId,
+    false // aqui nunca é admin
   );
 
-  const snapshot = await getDocs(q);
+  const snapshot = await getDocs(safeQuery);
 
   const total = snapshot.size;
 

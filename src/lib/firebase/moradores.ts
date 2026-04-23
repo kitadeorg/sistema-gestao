@@ -1,8 +1,10 @@
+// lib/firebase/moradores.ts
 import { db } from './firebase';
+import { withCondominioFilter } from './queryFilters';
 import {
   collection,
-  addDoc,
   getDocs,
+  getDoc,
   query,
   where,
   doc,
@@ -13,7 +15,6 @@ import {
 } from 'firebase/firestore';
 
 const moradoresCollection = collection(db, 'moradores');
-const unidadesCollection = collection(db, 'unidades');
 
 /* =====================================================
    ✅ TIPOS
@@ -28,22 +29,26 @@ export interface MoradorInput {
 }
 
 /* =====================================================
-   ✅ BUSCAR MORADORES
+   ✅ BUSCAR MORADORES (SEGURA MULTI-TENANT)
 ===================================================== */
 
-export const getMoradoresByCondominio = async (
-  condominioId: string
+export const getMoradores = async (
+  condominioId: string | null,
+  isAdmin: boolean
 ) => {
-  const q = query(
-    moradoresCollection,
-    where('condominioId', '==', condominioId)
+  const baseQuery = query(moradoresCollection);
+
+  const safeQuery = withCondominioFilter(
+    baseQuery,
+    condominioId,
+    isAdmin
   );
 
-  const snapshot = await getDocs(q);
+  const snapshot = await getDocs(safeQuery);
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
+  return snapshot.docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
   }));
 };
 
@@ -55,40 +60,51 @@ export const createMorador = async (
   condominioId: string,
   data: MoradorInput
 ) => {
+  const normalizedEmail = data.email?.toLowerCase().trim() ?? null;
 
-  // 1️⃣ Criar morador
-  await addDoc(moradoresCollection, {
+  let moradorDocRef;
+  if (normalizedEmail) {
+    moradorDocRef = doc(db, 'moradores', normalizedEmail);
+  } else {
+    moradorDocRef = doc(moradoresCollection);
+  }
+
+  // ✅ Vai buscar numero e bloco da unidade antes de criar o morador
+  const unidadeSnap = await getDoc(doc(db, 'unidades', data.unidadeId));
+  const unidadeData = unidadeSnap.exists() ? unidadeSnap.data() : null;
+
+  const unidadeNumero = unidadeData?.numero ?? null;
+  const bloco         = unidadeData?.bloco  ?? null;
+
+  // 1️⃣ Criar morador com unidadeNumero e bloco desnormalizados
+  await setDoc(moradorDocRef, {
     condominioId,
-    unidadeId: data.unidadeId,
-    nome: data.nome,
-    telefone: data.telefone ?? null,
-    email: data.email?.toLowerCase().trim() ?? null,
-    tipo: data.tipo,
-    status: 'ativo',
-    dataEntrada: serverTimestamp(),
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    unidadeId:     data.unidadeId,
+    unidadeNumero,           // ✅ ex: "A8"
+    bloco,                   // ✅ ex: "A"
+    nome:          data.nome,
+    telefone:      data.telefone ?? null,
+    email:         normalizedEmail,
+    tipo:          data.tipo,
+    status:        'ativo',
+    dataEntrada:   serverTimestamp(),
+    createdAt:     serverTimestamp(),
+    updatedAt:     serverTimestamp(),
   });
 
   // 2️⃣ Atualizar unidade para ocupada
-  await updateDoc(
-    doc(db, 'unidades', data.unidadeId),
-    {
-      status: 'ocupada',
-      updatedAt: serverTimestamp(),
-    }
-  );
+  await updateDoc(doc(db, 'unidades', data.unidadeId), {
+    status:    'ocupada',
+    updatedAt: serverTimestamp(),
+  });
 
-  // 3️⃣ Criar autorização para login (se tiver email)
-  if (data.email) {
-    await setDoc(
-      doc(db, 'usuarios_pre_registro', data.email.toLowerCase().trim()),
-      {
-        email: data.email.toLowerCase().trim(),
-        condominioId,
-        createdAt: serverTimestamp(),
-      }
-    );
+  // 3️⃣ Criar pré-registo para login
+  if (normalizedEmail) {
+    await setDoc(doc(db, 'usuarios_pre_registro', normalizedEmail), {
+      email:        normalizedEmail,
+      condominioId,
+      createdAt:    serverTimestamp(),
+    });
   }
 
   // 4️⃣ Atualizar total de moradores
@@ -104,30 +120,31 @@ export const deleteMorador = async (
   unidadeId: string,
   condominioId: string
 ) => {
-
   // 1️⃣ Eliminar morador
   await deleteDoc(doc(db, 'moradores', id));
 
   // 2️⃣ Verificar se ainda existem moradores na unidade
-  const q = query(
+  const baseQuery = query(
     moradoresCollection,
     where('unidadeId', '==', unidadeId)
   );
 
-  const snapshot = await getDocs(q);
+  const safeQuery = withCondominioFilter(
+    baseQuery,
+    condominioId,
+    false
+  );
+
+  const snapshot = await getDocs(safeQuery);
 
   if (snapshot.empty) {
-    // ✅ Se não houver mais moradores, marcar unidade como vaga
-    await updateDoc(
-      doc(db, 'unidades', unidadeId),
-      {
-        status: 'vaga',
-        updatedAt: serverTimestamp(),
-      }
-    );
+    await updateDoc(doc(db, 'unidades', unidadeId), {
+      status:    'vaga',
+      updatedAt: serverTimestamp(),
+    });
   }
 
-  // 3️⃣ Atualizar total de moradores
+  // 3️⃣ Atualizar total
   await atualizarTotalMoradores(condominioId);
 };
 
@@ -135,24 +152,19 @@ export const deleteMorador = async (
    ✅ ATUALIZAR TOTAL DE MORADORES
 ===================================================== */
 
-const atualizarTotalMoradores = async (
-  condominioId: string
-) => {
+const atualizarTotalMoradores = async (condominioId: string) => {
+  const baseQuery = query(moradoresCollection);
 
-  const q = query(
-    moradoresCollection,
-    where('condominioId', '==', condominioId)
+  const safeQuery = withCondominioFilter(
+    baseQuery,
+    condominioId,
+    false
   );
 
-  const snapshot = await getDocs(q);
+  const snapshot = await getDocs(safeQuery);
 
-  const total = snapshot.size;
-
-  await updateDoc(
-    doc(db, 'condominios', condominioId),
-    {
-      totalMoradores: total,
-      updatedAt: serverTimestamp(),
-    }
-  );
+  await updateDoc(doc(db, 'condominios', condominioId), {
+    totalMoradores: snapshot.size,
+    updatedAt:      serverTimestamp(),
+  });
 };

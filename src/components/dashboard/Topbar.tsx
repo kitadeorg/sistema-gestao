@@ -11,6 +11,7 @@ import { useDashboardContext } from '@/contexts/DashboardContext';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/firebase';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 // ─────────────────────────────────────────────
 // HOOK DROPDOWN
@@ -50,9 +51,14 @@ export function Topbar() {
   const profileDropdown  = useDropdown();
 
   const handleLogout = async () => {
-    if (confirm('Tem a certeza que deseja sair?')) {
-      await signOut(auth);
-    }
+    toast('Tem a certeza que deseja sair?', {
+      action: {
+        label: 'Sair',
+        onClick: async () => { await signOut(auth); },
+      },
+      cancel: { label: 'Cancelar', onClick: () => {} },
+      duration: 6000,
+    });
   };
 
   const handleSelectCondo = (condoId: string) => {
@@ -73,7 +79,7 @@ export function Topbar() {
   }
 
   return (
-    <header className="h-20 bg-white/80 backdrop-blur-md sticky top-0 z-30 px-4 sm:px-8 flex items-center justify-between border-b border-zinc-100">
+    <header className="h-20 theme-bg-surface backdrop-blur-md sticky top-0 z-30 px-4 sm:px-8 flex items-center justify-between border-b theme-border-soft" style={{ backgroundColor: 'var(--bg-surface)' }}>
 
       {/* ── LADO ESQUERDO ── */}
       <div className="flex items-center gap-3">

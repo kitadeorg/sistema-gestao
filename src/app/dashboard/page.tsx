@@ -1,55 +1,61 @@
 'use client';
 
 import React from 'react';
-import { useAuth } from '@/hooks/useAuth'; // Hook que vamos criar
+import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
 
-// Importe os componentes de dashboard para cada role
-import DashboardAdminContent from '@/components/dashboard/pages/admin/DashboardAdminContent';
-import DashboardGestorContent from '@/components/dashboard/pages/gestor/GestorContent';
-// import DashboardSindicoContent from '@/components/dashboard/pages/sindico/DashboardSindicoContent';
-// import DashboardFuncionarioContent from '@/components/dashboard/pages/funcionario/DashboardFuncionarioContent';
-// import DashboardMoradorContent from '@/components/dashboard/pages/morador/DashboardMoradorContent';
+// Importação dos conteúdos de cada Role
+import DashboardAdminContent       from '@/components/dashboard/pages/admin/DashboardAdminContent';
+import DashboardGestorContent      from '@/components/dashboard/pages/gestor/GestorContent';
+import DashboardSindicoContent     from '@/components/dashboard/pages/sindico/DashboardSindicoContent';
+import DashboardFuncionarioContent from '@/components/dashboard/pages/funcionario/DashboardFuncionarioContent';
+
+// Importação da nova tela de Morador
+// Nota: Se o componente em morador/page.tsx for o export default, importamos assim:
+import DashboardMoradorContent     from '@/app/dashboard/condominio/[condoId]/morador/page';
 
 export default function DashboardPage() {
   const { userData, loading } = useAuth();
 
-  // 1. Enquanto carrega, mostra um spinner
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center h-full">
+      <div className="flex-1 flex items-center justify-center h-screen">
         <Loader2 className="w-12 h-12 animate-spin text-orange-500" />
       </div>
     );
   }
 
-  // 2. Se não houver usuário, pode redirecionar ou mostrar mensagem
   if (!userData) {
-    // Idealmente, o middleware já teria redirecionado para /login
     return (
-      <div className="flex-1 flex items-center justify-center h-full">
-        <p>Usuário não autenticado. Redirecionando...</p>
+      <div className="flex-1 flex items-center justify-center h-screen">
+        <div className="text-center space-y-2">
+           <p className="text-zinc-500">Usuário não autenticado.</p>
+           <p className="text-xs text-zinc-400">Redirecionando para o login...</p>
+        </div>
       </div>
     );
   }
 
-  // 3. O "Roteador" de Dashboards
+  // Router de Roles
   switch (userData.role) {
     case 'admin':
       return <DashboardAdminContent />;
-     case 'gestor':
-       return <DashboardGestorContent />;
-    // case 'sindico':
-    //   return <DashboardSindicoContent />;
-    // case 'funcionario':
-    //   return <DashboardFuncionarioContent />;
-    // case 'morador':
-    //   return <DashboardMoradorContent />;
+    case 'gestor':
+      return <DashboardGestorContent />;
+    case 'sindico':
+      return <DashboardSindicoContent />;
+    case 'funcionario':
+      return <DashboardFuncionarioContent />;
+    case 'morador':
+      return <DashboardMoradorContent />; // <-- ADICIONADO AQUI
+    
     default:
       return (
-        <div className="p-6">
-          <h1 className="text-2xl font-bold">Role desconhecido</h1>
-          <p>Seu perfil não foi configurado corretamente.</p>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-zinc-900">Role desconhecido</h1>
+            <p className="text-zinc-500">O seu perfil ({userData.role}) não possui uma interface definida.</p>
+          </div>
         </div>
       );
   }

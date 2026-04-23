@@ -1,34 +1,31 @@
 'use client';
 
 import React from 'react';
-import { Pencil, Trash2, UserCheck, UserX } from 'lucide-react';
+import { Pencil, Trash2, UserCheck, UserX, CheckCircle2, XCircle, AlertTriangle, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuthContext } from '@/contexts/AuthContext';
-import type { UserData } from '@/lib/firebase/users';
+import type { UserData, EmailDeliveryStatus } from '@/lib/firebase/users';
 
 type UsuariosTableProps = {
   users: UserData[];
   loading?: boolean;
   onEdit: (user: UserData) => void;
   onDelete: (userId: string) => void;
-  // CORREÇÃO: Tipagem rigorosa para o status
   onToggleStatus: (userId: string, currentStatus: UserData['status']) => void;
 };
 
+// ─────────────────────────────────────────────
+// HELPERS DE LABEL / BADGE
+// ─────────────────────────────────────────────
+
 function roleLabel(role: UserData['role']) {
   switch (role) {
-    case 'admin':
-      return 'Administrador';
-    case 'gestor':
-      return 'Gestor de Portfólio';
-    case 'sindico':
-      return 'Síndico';
-    case 'funcionario':
-      return 'Funcionário';
-    case 'morador':
-      return 'Morador';
-    default:
-      return role;
+    case 'admin':       return 'Administrador';
+    case 'gestor':      return 'Gestor de Portfólio';
+    case 'sindico':     return 'Síndico';
+    case 'funcionario': return 'Funcionário';
+    case 'morador':     return 'Morador';
+    default:            return role;
   }
 }
 
@@ -59,7 +56,8 @@ function StatusBadge({ status }: { status: UserData['status'] }) {
         ? 'bg-zinc-100 text-zinc-700 border-zinc-200'
         : 'bg-amber-50 text-amber-700 border-amber-200';
 
-  const label = status === 'ativo' ? 'Ativo' : status === 'inativo' ? 'Inativo' : 'Pendente';
+  const label =
+    status === 'ativo' ? 'Ativo' : status === 'inativo' ? 'Inativo' : 'Pendente';
 
   return (
     <span className={cn('inline-flex items-center px-2 py-1 rounded-lg text-xs font-bold border', classes)}>
@@ -67,6 +65,56 @@ function StatusBadge({ status }: { status: UserData['status'] }) {
     </span>
   );
 }
+
+/**
+ * Badge de rastreio de entrega do e-mail de convite.
+ * Mostra undefined como "Aguardando" (convite ainda não disparado).
+ */
+function EmailStatusBadge({ status }: { status?: EmailDeliveryStatus }) {
+  if (!status) {
+    return (
+      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border bg-zinc-50 text-zinc-400 border-zinc-200">
+        <Clock size={10} />
+        Aguardando
+      </span>
+    );
+  }
+
+  switch (status) {
+    case 'email_entregue':
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border bg-emerald-50 text-emerald-700 border-emerald-200">
+          <CheckCircle2 size={10} />
+          Entregue
+        </span>
+      );
+    case 'email_bounce':
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border bg-rose-50 text-rose-700 border-rose-200">
+          <XCircle size={10} />
+          Bounce
+        </span>
+      );
+    case 'email_spam':
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border bg-orange-50 text-orange-700 border-orange-200">
+          <AlertTriangle size={10} />
+          Spam
+        </span>
+      );
+    case 'email_erro':
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border bg-yellow-50 text-yellow-700 border-yellow-200">
+          <AlertTriangle size={10} />
+          Erro Envio
+        </span>
+      );
+  }
+}
+
+// ─────────────────────────────────────────────
+// SKELETON
+// ─────────────────────────────────────────────
 
 function LoadingSkeleton() {
   return (
@@ -80,6 +128,10 @@ function LoadingSkeleton() {
   );
 }
 
+// ─────────────────────────────────────────────
+// COMPONENTE PRINCIPAL
+// ─────────────────────────────────────────────
+
 export default function UsuariosTable({
   users,
   loading = false,
@@ -89,7 +141,7 @@ export default function UsuariosTable({
 }: UsuariosTableProps) {
   const { user: firebaseUser, userData } = useAuthContext();
 
-  const isAdmin = userData?.role === 'admin';
+  const isAdmin    = userData?.role === 'admin';
   const currentUid = firebaseUser?.uid;
 
   if (loading) return <LoadingSkeleton />;
@@ -102,7 +154,7 @@ export default function UsuariosTable({
         </div>
       )}
 
-      {/* Desktop table */}
+      {/* ── Desktop table ── */}
       <div className="hidden md:block rounded-2xl border border-zinc-200 bg-white overflow-hidden">
         <table className="w-full">
           <thead className="bg-zinc-50 border-b border-zinc-200">
@@ -111,6 +163,7 @@ export default function UsuariosTable({
               <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">Email</th>
               <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">Perfil</th>
               <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">Status</th>
+              <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">Convite</th>
               <th className="text-right px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">Ações</th>
             </tr>
           </thead>
@@ -118,22 +171,32 @@ export default function UsuariosTable({
           <tbody className="divide-y divide-zinc-100">
             {users.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-sm text-zinc-500">
+                <td colSpan={6} className="px-4 py-10 text-center text-sm text-zinc-500">
                   Nenhum utilizador encontrado.
                 </td>
               </tr>
             ) : (
               users.map((u) => {
-                const isSelf = !!currentUid && u.id === currentUid;
-                const canManage = isAdmin;
-                const canDelete = canManage && !isSelf;
-                const canToggle = canManage && !isSelf;
+                const isSelf     = !!currentUid && u.id === currentUid;
+                const canManage  = isAdmin;
+                const canDelete  = canManage && !isSelf;
+                const canToggle  = canManage && !isSelf;
+                const toggleLabel = u.status === 'ativo' ? 'Desativar' : 'Ativar';
 
-                const toggleLabel =
-                  u.status === 'ativo' ? 'Desativar' : 'Ativar';
+                // Linha com fundo suave se e-mail problemático
+                const rowAlert =
+                  u.emailStatus === 'email_bounce' ||
+                  u.emailStatus === 'email_spam' ||
+                  u.emailStatus === 'email_erro';
 
                 return (
-                  <tr key={u.id} className="hover:bg-zinc-50/60 transition-colors">
+                  <tr
+                    key={u.id}
+                    className={cn(
+                      'transition-colors',
+                      rowAlert ? 'bg-rose-50/40 hover:bg-rose-50/70' : 'hover:bg-zinc-50/60',
+                    )}
+                  >
                     <td className="px-4 py-3">
                       <div className="min-w-0">
                         <p className="text-sm font-semibold text-zinc-900 truncate">{u.nome}</p>
@@ -151,6 +214,11 @@ export default function UsuariosTable({
 
                     <td className="px-4 py-3">
                       <StatusBadge status={u.status} />
+                    </td>
+
+                    {/* ── Nova coluna: estado do convite ── */}
+                    <td className="px-4 py-3">
+                      <EmailStatusBadge status={u.emailStatus} />
                     </td>
 
                     <td className="px-4 py-3">
@@ -179,7 +247,13 @@ export default function UsuariosTable({
                               ? 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50'
                               : 'bg-zinc-50 border-zinc-200 text-zinc-400 cursor-not-allowed',
                           )}
-                          title={canToggle ? toggleLabel : isSelf ? 'Não pode alterar a sua própria conta' : 'Apenas admin'}
+                          title={
+                            canToggle
+                              ? toggleLabel
+                              : isSelf
+                                ? 'Não pode alterar a sua própria conta'
+                                : 'Apenas admin'
+                          }
                         >
                           {u.status === 'ativo' ? <UserX size={16} /> : <UserCheck size={16} />}
                           {toggleLabel}
@@ -194,7 +268,13 @@ export default function UsuariosTable({
                               ? 'bg-white border-red-200 text-red-600 hover:bg-red-50'
                               : 'bg-zinc-50 border-zinc-200 text-zinc-400 cursor-not-allowed',
                           )}
-                          title={canDelete ? 'Eliminar' : isSelf ? 'Não pode eliminar a sua própria conta' : 'Apenas admin'}
+                          title={
+                            canDelete
+                              ? 'Eliminar'
+                              : isSelf
+                                ? 'Não pode eliminar a sua própria conta'
+                                : 'Apenas admin'
+                          }
                         >
                           <Trash2 size={16} />
                           Eliminar
@@ -209,7 +289,7 @@ export default function UsuariosTable({
         </table>
       </div>
 
-      {/* Mobile cards */}
+      {/* ── Mobile cards ── */}
       <div className="md:hidden space-y-3">
         {users.length === 0 ? (
           <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-10 text-center text-sm text-zinc-500">
@@ -217,24 +297,38 @@ export default function UsuariosTable({
           </div>
         ) : (
           users.map((u) => {
-            const isSelf = !!currentUid && u.id === currentUid;
-            const canManage = isAdmin;
-            const canDelete = canManage && !isSelf;
-            const canToggle = canManage && !isSelf;
-
+            const isSelf     = !!currentUid && u.id === currentUid;
+            const canManage  = isAdmin;
+            const canDelete  = canManage && !isSelf;
+            const canToggle  = canManage && !isSelf;
             const toggleLabel = u.status === 'ativo' ? 'Desativar' : 'Ativar';
 
+            const rowAlert =
+              u.emailStatus === 'email_bounce' ||
+              u.emailStatus === 'email_spam' ||
+              u.emailStatus === 'email_erro';
+
             return (
-              <div key={u.id} className="rounded-2xl border border-zinc-200 bg-white p-4">
+              <div
+                key={u.id}
+                className={cn(
+                  'rounded-2xl border p-4',
+                  rowAlert ? 'border-rose-200 bg-rose-50/40' : 'border-zinc-200 bg-white',
+                )}
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-bold text-zinc-900 truncate">{u.nome}</p>
                     <p className="text-xs text-zinc-500 truncate">{u.email}</p>
-                    {u.telefone && <p className="text-xs text-zinc-500 truncate">{u.telefone}</p>}
+                    {u.telefone && (
+                      <p className="text-xs text-zinc-500 truncate">{u.telefone}</p>
+                    )}
                   </div>
                   <div className="flex flex-col gap-2 items-end">
                     <RoleBadge role={u.role} />
                     <StatusBadge status={u.status} />
+                    {/* Badge de convite no mobile */}
+                    <EmailStatusBadge status={u.emailStatus} />
                   </div>
                 </div>
 

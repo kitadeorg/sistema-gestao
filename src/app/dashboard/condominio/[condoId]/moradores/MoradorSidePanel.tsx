@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { X, Loader2 } from 'lucide-react';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { can } from '@/lib/permissions/permissionMatrix';
 import {
   createMorador,
   MoradorInput,
 } from '@/lib/firebase/moradores';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
+import { toast } from 'sonner';
 
 interface Props {
   condominioId: string;
@@ -22,6 +25,12 @@ export default function MoradorSidePanel({
   onClose,
   onSuccess,
 }: Props) {
+
+  const { userData } = useAuthContext();
+  const role = userData?.role;
+
+  // ✅ PERMISSÃO
+  const podeCriar = role ? can(role, 'create', 'morador') : false;
 
   const [loading, setLoading] = useState(false);
   const [unidadesDisponiveis, setUnidadesDisponiveis] = useState<any[]>([]);
@@ -61,8 +70,10 @@ export default function MoradorSidePanel({
 
   const handleSubmit = async () => {
 
+    if (!podeCriar) return;
+
     if (!form.unidadeId || !form.nome.trim()) {
-      alert('Preencha todos os campos obrigatórios.');
+      toast.warning('Preencha todos os campos obrigatórios.');
       return;
     }
 
@@ -78,13 +89,13 @@ export default function MoradorSidePanel({
       };
 
       await createMorador(condominioId, payload);
-
+      toast.success('Morador criado com sucesso.');
       onSuccess();
       onClose();
 
     } catch (error) {
       console.error(error);
-      alert('Erro ao criar morador.');
+      toast.error('Erro ao criar morador.');
     } finally {
       setLoading(false);
     }
@@ -120,6 +131,7 @@ export default function MoradorSidePanel({
               setForm({ ...form, unidadeId: e.target.value })
             }
             className={inputStyle}
+            disabled={loading}
           >
             <option value="">Selecionar Unidade</option>
             {unidadesDisponiveis.map((u) => (
@@ -136,6 +148,7 @@ export default function MoradorSidePanel({
               setForm({ ...form, nome: e.target.value })
             }
             className={inputStyle}
+            disabled={loading}
           />
 
           <input
@@ -145,6 +158,7 @@ export default function MoradorSidePanel({
               setForm({ ...form, telefone: e.target.value })
             }
             className={inputStyle}
+            disabled={loading}
           />
 
           <input
@@ -154,6 +168,7 @@ export default function MoradorSidePanel({
               setForm({ ...form, email: e.target.value })
             }
             className={inputStyle}
+            disabled={loading}
           />
 
           <select
@@ -162,6 +177,7 @@ export default function MoradorSidePanel({
               setForm({ ...form, tipo: e.target.value })
             }
             className={inputStyle}
+            disabled={loading}
           >
             <option value="proprietario">Proprietário</option>
             <option value="inquilino">Inquilino</option>
@@ -170,14 +186,18 @@ export default function MoradorSidePanel({
         </div>
 
         <div className="p-6 border-t border-zinc-200">
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="w-full bg-zinc-900 text-white py-2 rounded-xl text-sm hover:bg-zinc-800 transition disabled:opacity-70 flex items-center justify-center gap-2"
-          >
-            {loading && <Loader2 size={16} className="animate-spin" />}
-            {loading ? 'A guardar...' : 'Criar Morador'}
-          </button>
+
+          {podeCriar && (
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="w-full bg-zinc-900 text-white py-2 rounded-xl text-sm hover:bg-zinc-800 transition disabled:opacity-70 flex items-center justify-center gap-2"
+            >
+              {loading && <Loader2 size={16} className="animate-spin" />}
+              {loading ? 'A guardar...' : 'Criar Morador'}
+            </button>
+          )}
+
         </div>
 
       </div>

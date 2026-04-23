@@ -1,7 +1,5 @@
 'use client';
 
-// hooks/useDashboardData.ts
-
 import { useState, useEffect, useMemo } from 'react';
 import { db } from '@/lib/firebase/firebase';
 import {
@@ -14,9 +12,7 @@ import {
 } from 'firebase/firestore';
 import type { UserRole } from '@/types';
 
-// ─────────────────────────────────────────────
-// TIPOS
-// ─────────────────────────────────────────────
+/* ===================== TIPOS ===================== */
 
 export interface CondominioData {
   id: string;
@@ -30,7 +26,7 @@ interface FinanceiroData {
 }
 
 interface OcorrenciaData {
-  status: 'aberto' | 'fechado';
+  status: 'aberta' | 'delegada' | 'em_execucao' | 'concluida' | 'encerrada';
   condominioId: string;
 }
 
@@ -53,66 +49,102 @@ export interface UseDashboardDataReturn {
   loading: boolean;
 }
 
-// ─────────────────────────────────────────────
-// HOOK
-// ─────────────────────────────────────────────
+/* ===================== HOOK ===================== */
 
 export function useDashboardData(
   userRole: UserRole | '',
   condominioId?: string,
   condominiosGeridos?: string[],
 ): UseDashboardDataReturn {
-  const [loading,          setLoading]          = useState(true);
-  const [condominiosList,  setCondominiosList]  = useState<CondominioData[]>([]);
-  const [selectedCondo,    setSelectedCondo]    = useState<string>('all');
-  const [allUnidades,      setAllUnidades]      = useState<UnidadeData[]>([]);
-  const [allFinanceiro,    setAllFinanceiro]    = useState<FinanceiroData[]>([]);
-  const [allOcorrencias,   setAllOcorrencias]   = useState<OcorrenciaData[]>([]);
 
-  // ── Carregar dados iniciais ──
+  const [loading, setLoading] = useState(true);
+  const [condominiosList, setCondominiosList] = useState<CondominioData[]>([]);
+  const [selectedCondo, setSelectedCondo] = useState<string>('all');
+
+  const [allUnidades, setAllUnidades] = useState<UnidadeData[]>([]);
+  const [allFinanceiro, setAllFinanceiro] = useState<FinanceiroData[]>([]);
+  const [allOcorrencias, setAllOcorrencias] = useState<OcorrenciaData[]>([]);
+
   useEffect(() => {
     if (!userRole) return;
 
     const loadInitialData = async () => {
       setLoading(true);
+
       try {
         let targetCondoIds: string[] = [];
 
-        // 1. Determinar quais condomínios buscar consoante o role
+        /* ================= ADMIN ================= */
         if (userRole === 'admin') {
           const condosSnap = await getDocs(collection(db, 'condominios'));
+
           const adminCondos = condosSnap.docs.map(d => ({
             id: d.id,
             nome: d.data().nome || 'Condomínio',
           }));
-          setCondominiosList([{ id: 'all', nome: 'Todos os Condomínios' }, ...adminCondos]);
-          targetCondoIds = adminCondos.map(c => c.id);
 
-        } else if (userRole === 'gestor' && condominiosGeridos?.length) {
-          // Buscar dados de cada condomínio do portfólio em paralelo
+          setCondominiosList([
+            { id: 'all', nome: 'Todos os Condomínios' },
+            ...adminCondos,
+          ]);
+
+          targetCondoIds = adminCondos.map(c => c.id);
+        }
+
+        /* ================= GESTOR ================= */
+        else if (userRole === 'gestor' && condominiosGeridos?.length) {
+
           const condoData = await Promise.all(
             condominiosGeridos.map(async (id) => {
               const snap = await getDoc(doc(db, 'condominios', id));
               return snap.exists()
                 ? { id, nome: snap.data().nome || 'Condomínio' }
                 : null;
-            }),
+            })
           );
-          const lista = condoData.filter(Boolean) as CondominioData[];
-          setCondominiosList([{ id: 'all', nome: 'Visão Consolidada' }, ...lista]);
-          targetCondoIds = condominiosGeridos;
 
-        } else if (
-          (userRole === 'sindico' || userRole === 'funcionario' || userRole === 'morador') &&
+          const lista = condoData.filter(Boolean) as CondominioData[];
+
+          setCondominiosList([
+            { id: 'all', nome: 'Visão Consolidada' },
+            ...lista,
+          ]);
+
+          targetCondoIds = condominiosGeridos;
+        }
+
+        /* ================= SÍNDICO / FUNCIONÁRIO ================= */
+        else if (
+          (userRole === 'sindico' || userRole === 'funcionario') &&
           condominioId
         ) {
-          // Utilizador ligado a um único condomínio
+
           const snap = await getDoc(doc(db, 'condominios', condominioId));
+
           if (snap.exists()) {
-            setCondominiosList([{ id: condominioId, nome: snap.data().nome || 'Condomínio' }]);
+            setCondominiosList([
+              { id: condominioId, nome: snap.data().nome || 'Condomínio' },
+            ]);
           }
+
           targetCondoIds = [condominioId];
-          setSelectedCondo(condominioId); // Fixa o condomínio, sem opção "all"
+          setSelectedCondo(condominioId);
+        }
+
+        /* ================= MORADOR ================= */
+        else if (userRole === 'morador' && condominioId) {
+          // ✅ Morador NÃO pode fazer queries globais
+          const snap = await getDoc(doc(db, 'condominios', condominioId));
+
+          if (snap.exists()) {
+            setCondominiosList([
+              { id: condominioId, nome: snap.data().nome || 'Condomínio' },
+            ]);
+          }
+
+          setSelectedCondo(condominioId);
+          setLoading(false);
+          return; // 🔥 sai sem fazer queries
         }
 
         if (targetCondoIds.length === 0) {
@@ -120,32 +152,63 @@ export function useDashboardData(
           return;
         }
 
-        // 2. Firestore limita 'in' a 30 items — buscar em lotes se necessário
+        /* ================= FIRESTORE QUERIES ================= */
+
         const chunks: string[][] = [];
         for (let i = 0; i < targetCondoIds.length; i += 30) {
           chunks.push(targetCondoIds.slice(i, i + 30));
         }
 
-        const [unidadesResults, financeiroResults, ocorrenciasResults] = await Promise.all([
-          Promise.all(chunks.map(chunk =>
-            getDocs(query(collection(db, 'unidades'), where('condominioId', 'in', chunk)))
-          )),
-          Promise.all(chunks.map(chunk =>
-            getDocs(query(collection(db, 'financeiro'), where('condominioId', 'in', chunk)))
-          )),
-          Promise.all(chunks.map(chunk =>
-            getDocs(query(collection(db, 'ocorrencias'), where('condominioId', 'in', chunk)))
-          )),
-        ]);
+        const [unidadesResults, financeiroResults, ocorrenciasResults] =
+          await Promise.all([
+            Promise.all(
+              chunks.map(chunk =>
+                getDocs(
+                  query(
+                    collection(db, 'unidades'),
+                    where('condominioId', 'in', chunk)
+                  )
+                )
+              )
+            ),
+            Promise.all(
+              chunks.map(chunk =>
+                getDocs(
+                  query(
+                    collection(db, 'financeiro'),
+                    where('condominioId', 'in', chunk)
+                  )
+                )
+              )
+            ),
+            Promise.all(
+              chunks.map(chunk =>
+                getDocs(
+                  query(
+                    collection(db, 'ocorrencias'),
+                    where('condominioId', 'in', chunk)
+                  )
+                )
+              )
+            ),
+          ]);
 
         setAllUnidades(
-          unidadesResults.flatMap(snap => snap.docs.map(d => d.data() as UnidadeData))
+          unidadesResults.flatMap(snap =>
+            snap.docs.map(d => d.data() as UnidadeData)
+          )
         );
+
         setAllFinanceiro(
-          financeiroResults.flatMap(snap => snap.docs.map(d => d.data() as FinanceiroData))
+          financeiroResults.flatMap(snap =>
+            snap.docs.map(d => d.data() as FinanceiroData)
+          )
         );
+
         setAllOcorrencias(
-          ocorrenciasResults.flatMap(snap => snap.docs.map(d => d.data() as OcorrenciaData))
+          ocorrenciasResults.flatMap(snap =>
+            snap.docs.map(d => d.data() as OcorrenciaData)
+          )
         );
 
       } catch (error) {
@@ -158,17 +221,37 @@ export function useDashboardData(
     loadInitialData();
   }, [userRole, condominioId, condominiosGeridos?.join(',')]);
 
-  // ── Calcular métricas com useMemo (sem chamadas ao Firestore) ──
+  /* ================= MÉTRICAS ================= */
+
   const metrics = useMemo<DashboardMetrics>(() => {
+
+    if (userRole === 'morador') {
+      // ✅ Morador não usa métricas globais
+      return {
+        totalReceita: 0,
+        totalUnidades: 0,
+        taxaInadimplencia: 0,
+        manutencaoAberta: 0,
+      };
+    }
+
     const isAll = selectedCondo === 'all';
 
-    const unidades    = isAll ? allUnidades    : allUnidades.filter(u => u.condominioId === selectedCondo);
-    const financeiro  = isAll ? allFinanceiro  : allFinanceiro.filter(f => f.condominioId === selectedCondo);
-    const ocorrencias = isAll ? allOcorrencias : allOcorrencias.filter(o => o.condominioId === selectedCondo);
+    const unidades = isAll
+      ? allUnidades
+      : allUnidades.filter(u => u.condominioId === selectedCondo);
+
+    const financeiro = isAll
+      ? allFinanceiro
+      : allFinanceiro.filter(f => f.condominioId === selectedCondo);
+
+    const ocorrencias = isAll
+      ? allOcorrencias
+      : allOcorrencias.filter(o => o.condominioId === selectedCondo);
 
     let totalReceita = 0;
-    let totalDivida  = 0;
-    let totalQuotas  = 0;
+    let totalDivida = 0;
+    let totalQuotas = 0;
 
     financeiro.forEach(item => {
       totalQuotas += item.valor || 0;
@@ -181,11 +264,14 @@ export function useDashboardData(
 
     return {
       totalReceita,
-      totalUnidades:     unidades.length,
-      taxaInadimplencia: totalQuotas > 0 ? (totalDivida / totalQuotas) * 100 : 0,
-      manutencaoAberta:  ocorrencias.filter(o => o.status === 'aberto').length,
+      totalUnidades: unidades.length,
+      taxaInadimplencia:
+        totalQuotas > 0 ? (totalDivida / totalQuotas) * 100 : 0,
+      manutencaoAberta:
+        ocorrencias.filter(o => o.status === 'aberta').length,
     };
-  }, [allUnidades, allFinanceiro, allOcorrencias, selectedCondo]);
+
+  }, [allUnidades, allFinanceiro, allOcorrencias, selectedCondo, userRole]);
 
   return {
     metrics,

@@ -44,6 +44,14 @@ export interface User {
   /** Para gestores de portfólio: lista de IDs dos condomínios que gerem. */
   condominiosGeridos?: string[];
   // ----------------------------------------
+  permissions?: {
+    [condominioId: string]: {
+      canManageFinances: boolean;
+      canManageUsers: boolean;
+      canViewReports: boolean;
+      canManageMaintenance: boolean;
+    };
+  };
 
   createdAt: Date;
   updatedAt: Date;

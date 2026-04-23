@@ -15,12 +15,13 @@ import {
   FileText,
   Settings,
   Home,
+  AlertTriangle,
+  UserCheck,
 } from 'lucide-react';
 import NavSection from './NavSection';
 import NavItem from './NavItem';
 import ExpandableNavItem from './ExpandableNavItem';
 
-// --- Interfaces ---
 interface UserData {
   role: 'admin' | 'gestor' | 'sindico' | 'funcionario' | 'morador';
 }
@@ -41,197 +42,169 @@ interface NavSectionConfig {
 
 type NavConfig = NavSectionConfig[];
 
-// --- Configuração da Navegação por Role ---
+const condoBase = (condoId?: string) =>
+  condoId ? `/dashboard/condominio/${condoId}` : '/dashboard';
+
 const navConfig: Record<string, (selectedCondo?: string) => NavConfig> = {
+
+  /* ══ ADMIN ══ */
   admin: () => [
     {
       label: 'Gestão de Plataforma',
       items: [
-        {
-          href: '/dashboard',
-          icon: BarChart3,
-          label: 'Dashboard Global',
-          activePaths: ['/dashboard'],
-        },
-        {
-          href: '/dashboard/usuarios',
-          icon: Users,
-          label: 'Usuários',
-          activePaths: ['/dashboard/usuarios'],
-        },
-        {
-          href: '/dashboard/condominios',
-          icon: Building2,
-          label: 'Condomínios',
-          activePaths: ['/dashboard/condominios'],
-        },
-        {
-          href: '/dashboard/relatorios',
-          icon: FileText,
-          label: 'Relatórios',
-          activePaths: ['/dashboard/relatorios'],
-        },
-        {
-          href: '/dashboard/configuracoes',
-          icon: Settings,
-          label: 'Configurações',
-          activePaths: ['/dashboard/configuracoes'],
-        },
+        { href: '/dashboard',               icon: BarChart3,  label: 'Geral',        activePaths: ['/dashboard'] },
+        { href: '/dashboard/usuarios',      icon: Users,      label: 'Usuários',      activePaths: ['/dashboard/usuarios'] },
+        { href: '/dashboard/condominios',   icon: Building2,  label: 'Condomínios',   activePaths: ['/dashboard/condominios'] },
+        { href: '/dashboard/relatorios',    icon: FileText,   label: 'Relatórios',    activePaths: ['/dashboard/relatorios'] },
+        { href: '/dashboard/configuracoes', icon: Settings,   label: 'Configurações', activePaths: ['/dashboard/configuracoes'] },
       ],
     },
   ],
 
+  /* ══ GESTOR ══ */
   gestor: (selectedCondo) => [
     {
       label: 'Gestão de Portfólio',
       items: [
-        {
-          href: '/dashboard',
-          icon: BarChart3,
-          label: 'Visão Consolidada',
-          activePaths: ['/dashboard'],
-        },
+        { href: '/dashboard', icon: BarChart3, label: 'Geral', activePaths: ['/dashboard'] },
         {
           href: '#',
           icon: Building2,
           label: 'Seu Portfólio',
-          items: selectedCondo
-            ? [
-                {
-                  href: `/dashboard/condominio/${selectedCondo}`,
-                  icon: Home,
-                  label: 'Visão por Condomínio',
-                  activePaths: [`/dashboard/condominio/${selectedCondo}`],
-                },
-                {
-                  href: `/dashboard/condominio/${selectedCondo}/moradores`,
-                  icon: Users,
-                  label: 'Moradores',
-                  activePaths: [`/dashboard/condominio/${selectedCondo}/moradores`],
-                },
-                {
-                  href: `/dashboard/condominio/${selectedCondo}/unidades`,
-                  icon: Home,
-                  label: 'Unidades',
-                  activePaths: [`/dashboard/condominio/${selectedCondo}/unidades`],
-                },
-              ]
-            : [],
+          items: selectedCondo ? [
+            { href: `/dashboard/condominio/${selectedCondo}`,           icon: Home,  label: 'Visão por Condomínio', activePaths: [`/dashboard/condominio/${selectedCondo}`] },
+            { href: `/dashboard/condominio/${selectedCondo}/moradores`, icon: Users, label: 'Moradores',            activePaths: [`/dashboard/condominio/${selectedCondo}/moradores`] },
+            { href: `/dashboard/condominio/${selectedCondo}/unidades`,  icon: Home,  label: 'Unidades',             activePaths: [`/dashboard/condominio/${selectedCondo}/unidades`] },
+          ] : [],
         },
       ],
     },
     {
-      label: 'Financeiro',
-      items: [
-        {
-          href: '/dashboard/financeiro',
-          icon: DollarSign,
-          label: 'Fluxo de Caixa',
-          activePaths: ['/dashboard/financeiro'],
-        },
-        {
-          href: '/dashboard/relatorio-inadimplencia',
-          icon: BarChart3,
-          label: 'Inadimplência',
-          activePaths: ['/dashboard/relatorio-inadimplencia'],
-        },
-      ],
+  label: 'Financeiro',
+  items: selectedCondo ? [
+    {
+      href: `/dashboard/condominio/${selectedCondo}/financeiro/fluxo-caixa`,
+      icon: DollarSign,
+      label: 'Fluxo de Caixa',
+      activePaths: [`/dashboard/condominio/${selectedCondo}/financeiro/fluxo-caixa`],
     },
+    {
+      href: `/dashboard/condominio/${selectedCondo}/financeiro/pagamentos`,
+      icon: Receipt,
+      label: 'Pagamentos',
+      activePaths: [`/dashboard/condominio/${selectedCondo}/financeiro/pagamentos`],
+    },
+    {
+      href: `/dashboard/condominio/${selectedCondo}/financeiro/inadimplencia`,
+      icon: AlertTriangle,
+      label: 'Inadimplência',
+      activePaths: [`/dashboard/condominio/${selectedCondo}/financeiro/inadimplencia`],
+    },
+  ] : [],
+},
     {
       label: 'Operacional',
-      items: selectedCondo
-        ? [
-            {
-              href: `/dashboard/condominio/${selectedCondo}/ocorrencias`,
-              icon: Bell,
-              label: 'Ocorrências',
-              activePaths: [`/dashboard/condominio/${selectedCondo}/ocorrencias`],
-              badge: '3',
-            },
-            {
-              href: `/dashboard/condominio/${selectedCondo}/manutencao`,
-              icon: Wrench,
-              label: 'Manutenção',
-              activePaths: [`/dashboard/condominio/${selectedCondo}/manutencao`],
-            },
-          ]
-        : [],
+      items: selectedCondo ? [
+        { href: `/dashboard/condominio/${selectedCondo}/ocorrencias`, icon: Bell,   label: 'Ocorrências', activePaths: [`/dashboard/condominio/${selectedCondo}/ocorrencias`] },
+        { href: `/dashboard/condominio/${selectedCondo}/manutencao`,  icon: Wrench, label: 'Manutenção',  activePaths: [`/dashboard/condominio/${selectedCondo}/manutencao`] },
+      ] : [],
     },
-  ],
-
-  sindico: () => [
     {
-      label: 'Meu Condomínio',
+      label: 'Conta',
       items: [
-        {
-          href: '/dashboard',
-          icon: LayoutDashboard,
-          label: 'Painel de Controle',
-          activePaths: ['/dashboard'],
-        },
-        {
-          href: '/dashboard/moradores',
-          icon: Users,
-          label: 'Moradores',
-          activePaths: ['/dashboard/moradores'],
-          badge: '50',
-        },
-        {
-          href: '/dashboard/unidades',
-          icon: Home,
-          label: 'Unidades',
-          activePaths: ['/dashboard/unidades'],
-        },
+        { href: '/dashboard/configuracoes', icon: Settings, label: 'Configurações', activePaths: ['/dashboard/configuracoes'] },
       ],
     },
   ],
 
+  /* ══ SÍNDICO ══ */
+  sindico: (selectedCondo) => {
+    const base = condoBase(selectedCondo);
+    return [
+      {
+        label: 'Meu Condomínio',
+        items: [
+          { href: '/dashboard',        icon: LayoutDashboard, label: 'Painel',       activePaths: ['/dashboard'] },
+          { href: `${base}/moradores`, icon: Users,           label: 'Moradores',    activePaths: [`${base}/moradores`] },
+          { href: `${base}/unidades`,  icon: Home,            label: 'Unidades',     activePaths: [`${base}/unidades`] },
+          { href: `${base}/equipe`,    icon: UserCheck,       label: 'Minha Equipe', activePaths: [`${base}/equipe`] },
+        ],
+      },
+      {
+        label: 'Financeiro',
+        items: [
+          { href: `${base}/financeiro/fluxo-caixa`,   icon: DollarSign,    label: 'Fluxo de Caixa', activePaths: [`${base}/financeiro/fluxo-caixa`] },
+          { href: `${base}/financeiro/inadimplencia`, icon: AlertTriangle, label: 'Inadimplência',  activePaths: [`${base}/financeiro/inadimplencia`] },
+          { href: `${base}/financeiro/relatorios`,    icon: FileText,      label: 'Relatórios',     activePaths: [`${base}/financeiro/relatorios`] },
+        ],
+      },
+      {
+        label: 'Operacional',
+        items: [
+          { href: `${base}/ocorrencias`, icon: Bell,   label: 'Ocorrências', activePaths: [`${base}/ocorrencias`] },
+          { href: `${base}/manutencao`,  icon: Wrench, label: 'Manutenção',  activePaths: [`${base}/manutencao`] },
+        ],
+      },
+      {
+        label: 'Configurações',
+        items: [
+          { href: `${base}/configuracoes`, icon: Settings, label: 'Configurações do Condomínio', activePaths: [`${base}/configuracoes`] },
+          { href: '/dashboard/configuracoes', icon: Settings, label: 'Minha Conta', activePaths: ['/dashboard/configuracoes'] },
+        ],
+      },
+    ];
+  },
+
+  /* ══ FUNCIONÁRIO ══ */
   funcionario: () => [
     {
       label: 'Minhas Tarefas',
       items: [
-        {
-          href: '/dashboard',
-          icon: ClipboardList,
-          label: 'Minhas Tarefas',
-          activePaths: ['/dashboard'],
-          badge: '8',
-        },
-        {
-          href: '/dashboard/visitantes',
-          icon: Users,
-          label: 'Visitantes',
-          activePaths: ['/dashboard/visitantes'],
-        },
+        { href: '/dashboard', icon: LayoutDashboard, label: 'Painel', activePaths: ['/dashboard'] },
+      ],
+    },
+    {
+      label: 'Operacional',
+      items: [
+        { href: '/dashboard/funcionario/tarefas',    icon: ClipboardList, label: 'Minhas Tarefas', activePaths: ['/dashboard/funcionario/tarefas'] },
+        { href: '/dashboard/funcionario/visitantes', icon: Users,         label: 'Visitantes',     activePaths: ['/dashboard/funcionario/visitantes'] },
+        { href: '/dashboard/funcionario/ocorrencias',icon: Bell,          label: 'Ocorrências',    activePaths: ['/dashboard/funcionario/ocorrencias'] },
+        { href: '/dashboard/funcionario/manutencao', icon: Wrench,        label: 'Manutenção',     activePaths: ['/dashboard/funcionario/manutencao'] },
+      ],
+    },
+    {
+      label: 'Conta',
+      items: [
+        { href: '/dashboard/configuracoes', icon: Settings, label: 'Configurações', activePaths: ['/dashboard/configuracoes'] },
       ],
     },
   ],
 
-  morador: () => [
-    {
-      label: 'Meu Apartamento',
-      items: [
-        {
-          href: '/dashboard',
-          icon: Home,
-          label: 'Meu Painel',
-          activePaths: ['/dashboard'],
-        },
-        {
-          href: '/dashboard/minhas-quotas',
-          icon: Receipt,
-          label: 'Minhas Quotas',
-          activePaths: ['/dashboard/minhas-quotas'],
-        },
-        {
-          href: '/dashboard/pagamentos',
-          icon: DollarSign,
-          label: 'Meus Pagamentos',
-          activePaths: ['/dashboard/pagamentos'],
-        },
-      ],
-    },
-  ],
+  /* ══ MORADOR ══
+     Rotas seguem a estrutura:
+     /dashboard/condominio/[condoId]/morador/...
+  ══════════════ */
+  morador: (selectedCondo) => {
+    const base = condoBase(selectedCondo);
+    return [
+      {
+        label: 'Meu Apartamento',
+        items: [
+          { href: '/dashboard',                   icon: LayoutDashboard, label: 'Painel',          activePaths: ['/dashboard'] },
+          { href: `${base}/morador/minhas-quotas`,icon: Receipt,         label: 'Minhas Quotas',   activePaths: [`${base}/morador/minhas-quotas`] },
+          { href: `${base}/morador/pagamentos`,   icon: DollarSign,      label: 'Meus Pagamentos', activePaths: [`${base}/morador/pagamentos`] },
+          { href: `${base}/morador/ocorrencias`,  icon: Bell,            label: 'Ocorrências',     activePaths: [`${base}/morador/ocorrencias`] },
+          { href: `${base}/morador/visitantes`,   icon: Users,           label: 'Visitantes',      activePaths: [`${base}/morador/visitantes`] },
+        ],
+      },
+      {
+        label: 'Conta',
+        items: [
+          { href: '/dashboard/configuracoes', icon: Settings, label: 'Configurações', activePaths: ['/dashboard/configuracoes'] },
+        ],
+      },
+    ];
+  },
 };
 
 interface SidebarNavProps {
@@ -256,68 +229,67 @@ export default function SidebarNav({
 
   const currentNavConfig = roleNavConfigFn(selectedCondo);
 
-  // A LÓGICA CORRIGIDA:
   const isLinkActive = (href: string, activePaths: string[] = []): boolean => {
-    // Se for o Dashboard, queremos um match exato
-    if (href === '/dashboard') {
-      return pathname === '/dashboard';
-    }
-    
-    // Para outras páginas, permitimos que sub-rotas mantenham o item pai ativo
-    return activePaths.some(
-      (path) => pathname === path || (path.length > 1 && pathname.startsWith(path))
-    );
+    if (href === '/dashboard') return pathname === '/dashboard';
+    if (pathname === href) return true;
+    return activePaths.some((path) => {
+      if (path === '/dashboard') return pathname === '/dashboard';
+      return pathname === path || pathname.startsWith(path + '/');
+    });
   };
 
   return (
-    <nav
-      className={[
-        'flex-1 px-3 py-5 overflow-y-auto space-y-0.5',
-        'bg-white text-zinc-900',
-        'scrollbar-thin scrollbar-thumb-zinc-300 scrollbar-track-transparent',
-      ].join(' ')}
-    >
-      {currentNavConfig.map((section) => (
-        <NavSection key={section.label} label={section.label} isCollapsed={isCollapsed}>
-          {section.items.map((item) => {
-            if (item.items) {
+    <nav className={[
+      'flex-1 px-3 py-5 overflow-y-auto',
+      'theme-bg-surface theme-text',
+      'scrollbar-thin scrollbar-thumb-zinc-200 scrollbar-track-transparent',
+    ].join(' ')}>
+      {currentNavConfig.map((section) => {
+        if (!section.items.length) return null;
+        return (
+          <NavSection key={section.label} label={section.label} isCollapsed={isCollapsed}>
+            {section.items.map((item) => {
+              if (item.items) {
+                const hasActiveChild = item.items.some((sub) =>
+                  isLinkActive(sub.href, sub.activePaths)
+                );
+                return (
+                  <ExpandableNavItem
+                    key={item.label}
+                    label={item.label}
+                    icon={<item.icon size={16} />}
+                    expanded={expandedSections[item.label.toLowerCase()] || hasActiveChild}
+                    onToggle={() => onToggleSection(item.label.toLowerCase())}
+                  >
+                    {item.items.map((subItem) => (
+                      <NavItem
+                        key={subItem.label}
+                        href={subItem.href}
+                        icon={<subItem.icon size={14} />}
+                        label={subItem.label}
+                        active={isLinkActive(subItem.href, subItem.activePaths)}
+                        badge={subItem.badge}
+                        isCollapsed={isCollapsed}
+                      />
+                    ))}
+                  </ExpandableNavItem>
+                );
+              }
               return (
-                <ExpandableNavItem
+                <NavItem
                   key={item.label}
-                  label={item.label}
+                  href={item.href}
                   icon={<item.icon size={16} />}
-                  expanded={expandedSections[item.label.toLowerCase()] || false}
-                  onToggle={() => onToggleSection(item.label.toLowerCase())}
-                >
-                  {item.items.map((subItem) => (
-                    <NavItem
-                      key={subItem.label}
-                      href={subItem.href}
-                      icon={<subItem.icon size={14} />}
-                      label={subItem.label}
-                      // Passando o href para a função isLinkActive
-                      active={isLinkActive(subItem.href, subItem.activePaths)}
-                      badge={subItem.badge}
-                    />
-                  ))}
-                </ExpandableNavItem>
+                  label={item.label}
+                  active={isLinkActive(item.href, item.activePaths)}
+                  badge={item.badge}
+                  isCollapsed={isCollapsed}
+                />
               );
-            }
-
-            return (
-              <NavItem
-                key={item.label}
-                href={item.href}
-                icon={<item.icon size={16} />}
-                label={item.label}
-                // Passando o href para a função isLinkActive
-                active={isLinkActive(item.href, item.activePaths)}
-                badge={item.badge}
-              />
-            );
-          })}
-        </NavSection>
-      ))}
+            })}
+          </NavSection>
+        );
+      })}
     </nav>
   );
 }

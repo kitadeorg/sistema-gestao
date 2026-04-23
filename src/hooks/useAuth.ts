@@ -3,23 +3,15 @@
 
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase/firebase';
 import type { UserData } from '@/contexts/AuthContext';
-
-// ─────────────────────────────────────────────
-// TIPO DE RETORNO
-// ─────────────────────────────────────────────
 
 export interface UseAuthReturn {
   user: FirebaseUser | null;
   userData: UserData | null;
   loading: boolean;
 }
-
-// ─────────────────────────────────────────────
-// HOOK
-// ─────────────────────────────────────────────
 
 export function useAuth(): UseAuthReturn {
   const [user,     setUser]     = useState<FirebaseUser | null>(null);
@@ -38,7 +30,6 @@ export function useAuth(): UseAuthReturn {
           if (userDocSnap.exists()) {
             const data = userDocSnap.data();
 
-            // Mapeia o documento do Firestore para o tipo UserData completo
             const mapped: UserData = {
               uid:      firebaseUser.uid,
               role:     data.role     ?? 'morador',
@@ -47,15 +38,43 @@ export function useAuth(): UseAuthReturn {
               telefone: data.telefone,
               avatarUrl: data.avatarUrl ?? firebaseUser.photoURL ?? undefined,
               status:   data.status   ?? 'ativo',
-
-              // Relação utilizador ↔ condomínio
               condominioId:       data.condominioId       ?? undefined,
               condominiosGeridos: data.condominiosGeridos ?? undefined,
             };
 
+            // ✅ Se for morador, vai buscar unidadeId e moradorId
+            if (mapped.role === 'morador') {
+              const email = mapped.email.toLowerCase().trim();
+
+              // moradores/{id} onde id = email (conforme createMorador)
+              const moradorDocRef  = doc(db, 'moradores', email);
+              const moradorDocSnap = await getDoc(moradorDocRef);
+
+              if (moradorDocSnap.exists()) {
+                const m = moradorDocSnap.data();
+                mapped.moradorId  = moradorDocSnap.id;
+                mapped.unidadeId  = m.unidadeId  ?? undefined;
+                mapped.unidadeNumero = m.unidadeNumero ?? undefined;
+                mapped.bloco      = m.bloco      ?? undefined;
+              } else {
+                // fallback: pesquisa por email como campo (moradores criados antes da nova lógica)
+                const q = query(
+                  collection(db, 'moradores'),
+                  where('email', '==', email)
+                );
+                const snap = await getDocs(q);
+                if (!snap.empty) {
+                  const m = snap.docs[0].data();
+                  mapped.moradorId     = snap.docs[0].id;
+                  mapped.unidadeId     = m.unidadeId     ?? undefined;
+                  mapped.unidadeNumero = m.unidadeNumero ?? undefined;
+                  mapped.bloco         = m.bloco         ?? undefined;
+                }
+              }
+            }
+
             setUserData(mapped);
           } else {
-            // Documento não existe no Firestore — utilizador autenticado mas sem perfil
             console.warn(`Perfil não encontrado para uid: ${firebaseUser.uid}`);
             setUserData(null);
           }

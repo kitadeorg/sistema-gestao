@@ -1,14 +1,14 @@
 // contexts/AuthContext.tsx
 'use client';
 
-import { createContext, useContext, ReactNode } from 'react';
+import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth as useAuthHook } from '@/hooks/useAuth';
 import type { UserRole } from '@/types';
 
-// ─────────────────────────────────────────────
-// TIPOS
-// ─────────────────────────────────────────────
+/* ─────────────────────────────────────────────────────────────────────────────
+   TIPOS
+───────────────────────────────────────────────────────────────────────────── */
 
 export interface UserData {
   uid: string;
@@ -19,79 +19,80 @@ export interface UserData {
   avatarUrl?: string;
   status: 'ativo' | 'inativo' | 'pendente';
 
-  // --- Relação utilizador ↔ condomínio ---
-  /** Para síndicos, funcionários e moradores: ID do único condomínio associado. */
   condominioId?: string;
-  /** Para gestores de portfólio: lista de IDs dos condomínios que gerem. */
   condominiosGeridos?: string[];
-  // ----------------------------------------
+
+  // Campos do morador — preenchidos pelo useAuth se role === 'morador'
+  moradorId?: string;
+  unidadeId?: string;
+  unidadeNumero?: string;
+  bloco?: string;
 }
 
 export interface AuthContextType {
-  /** Utilizador autenticado no Firebase Auth (null se não autenticado). */
   user: FirebaseUser | null;
-  /** Dados do perfil do utilizador guardados no Firestore. */
   userData: UserData | null;
-  /** True enquanto o estado de autenticação está a ser resolvido. */
   loading: boolean;
 
-  // --- Helpers derivados (calculados uma vez aqui, usados em todo o lado) ---
-
-  /** True se o utilizador é Admin (acesso total). */
   isAdmin: boolean;
-  /** True se o utilizador é Gestor de Portfólio. */
   isGestor: boolean;
-  /** True se o utilizador é Síndico. */
   isSindico: boolean;
-  /** True se o utilizador é Funcionário. */
   isFuncionario: boolean;
-  /** True se o utilizador é Morador. */
   isMorador: boolean;
 
-  /**
-   * IDs dos condomínios a que o utilizador tem acesso.
-   * - Admin    → [] (acesso total, sem filtro)
-   * - Gestor   → condominiosGeridos[]
-   * - Outros   → [condominioId] (array com um único elemento)
-   */
   condominiosAcessiveis: string[];
-
-  /** True se o utilizador tem acesso a mais do que um condomínio. */
   isMultiCondominio: boolean;
+  condominioIdPrincipal: string | undefined;
+  
+  currentCondominioId: string | null;
+  setCurrentCondominio: (id: string | null) => void;
 }
 
-// ─────────────────────────────────────────────
-// CONTEXT
-// ─────────────────────────────────────────────
+/* ─────────────────────────────────────────────────────────────────────────────
+   CONTEXT
+───────────────────────────────────────────────────────────────────────────── */
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// ─────────────────────────────────────────────
-// PROVIDER
-// ─────────────────────────────────────────────
+/* ─────────────────────────────────────────────────────────────────────────────
+   PROVIDER
+───────────────────────────────────────────────────────────────────────────── */
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const auth = useAuth(); // { user, userData, loading }
-
+  const auth = useAuthHook(); 
   const { userData } = auth;
+  
+  // ✅ ESTADO DO CONDOMÍNIO ATIVO
+  const [currentCondominioId, setCurrentCondominioId] = useState<string | null>(null);
 
-  // --- Helpers de role ---
-  const isAdmin      = userData?.role === 'admin';
-  const isGestor     = userData?.role === 'gestor';
-  const isSindico    = userData?.role === 'sindico';
+  const isAdmin       = userData?.role === 'admin';
+  const isGestor      = userData?.role === 'gestor';
+  const isSindico     = userData?.role === 'sindico';
   const isFuncionario = userData?.role === 'funcionario';
-  const isMorador    = userData?.role === 'morador';
+  const isMorador     = userData?.role === 'morador';
 
-  // --- Lista de condomínios acessíveis ---
   const condominiosAcessiveis: string[] = (() => {
     if (!userData) return [];
-    if (isAdmin) return [];                                         // sem filtro
-    if (isGestor) return userData.condominiosGeridos ?? [];         // portfólio
-    if (userData.condominioId) return [userData.condominioId];      // único condo
+    if (isAdmin)  return [];
+    if (isGestor) return userData.condominiosGeridos ?? [];
+    if (userData.condominioId) return [userData.condominioId];
     return [];
   })();
 
   const isMultiCondominio = isAdmin || condominiosAcessiveis.length > 1;
+
+  const condominioIdPrincipal: string | undefined = (() => {
+    if (!userData) return undefined;
+    if (userData.condominioId) return userData.condominioId;
+    if (isGestor) return userData.condominiosGeridos?.[0];
+    return undefined;
+  })();
+
+  useEffect(() => {
+    if (!currentCondominioId && condominioIdPrincipal) {
+      setCurrentCondominioId(condominioIdPrincipal);
+    }
+  }, [condominioIdPrincipal, currentCondominioId]);
 
   const value: AuthContextType = {
     ...auth,
@@ -102,6 +103,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isMorador,
     condominiosAcessiveis,
     isMultiCondominio,
+    condominioIdPrincipal,
+    currentCondominioId,
+    setCurrentCondominio: setCurrentCondominioId,
   };
 
   return (
@@ -111,14 +115,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// ─────────────────────────────────────────────
-// HOOK
-// ─────────────────────────────────────────────
+/* ─────────────────────────────────────────────────────────────────────────────
+   HOOK PRINCIPAL
+───────────────────────────────────────────────────────────────────────────── */
 
 export function useAuthContext() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuthContext must be used within AuthProvider');
+    throw new Error('useAuthContext must be used within an <AuthProvider>');
   }
   return context;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   HOOK ALIAS — retrocompatibilidade
+───────────────────────────────────────────────────────────────────────────── */
+
+export function useAuth() {
+  return useAuthContext();
 }

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MULTI.GEST",
+  title: "CONDO.",
   description: "Sistema de gestão de condomínios",
 };
 
@@ -35,6 +36,12 @@ export default function RootLayout({
         <div className="relative flex min-h-screen flex-col">
           {children}
         </div>
+        <Toaster
+          position="bottom-right"
+          duration={3000}
+          richColors
+          closeButton
+        />
       </body>
     </html>
   );

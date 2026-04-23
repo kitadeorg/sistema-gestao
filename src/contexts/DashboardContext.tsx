@@ -1,7 +1,7 @@
 // contexts/DashboardContext.tsx
 'use client';
 
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { useDashboardData, type CondominioData, type DashboardMetrics } from '@/hooks/useDashboardData';
 import { useAuthContext } from './AuthContext';
 
@@ -33,13 +33,12 @@ const DashboardContext = createContext<DashboardContextType | undefined>(undefin
 // ─────────────────────────────────────────────
 
 export function DashboardProvider({ children }: { children: ReactNode }) {
-  const { userData } = useAuthContext();
+  const { userData, setCurrentCondominio } = useAuthContext();
 
-  // Passa os campos corretos alinhados com o novo tipo UserData
   const dashboardData = useDashboardData(
     userData?.role ?? '',
     userData?.condominioId,
-    userData?.condominiosGeridos,   // era 'condominios', agora é 'condominiosGeridos'
+    userData?.condominiosGeridos,
   );
 
   const [isSidebarOpen,      setIsSidebarOpen]      = useState(false);
@@ -47,6 +46,20 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   const toggleSidebar         = () => setIsSidebarOpen(prev => !prev);
   const toggleSidebarCollapse = () => setIsSidebarCollapsed(prev => !prev);
+
+  // ✅ SINCRONIZAÇÃO BIDIRECIONAL
+  // Quando selectedCondo muda (via Topbar, Sidebar ou qualquer componente),
+  // actualiza também o currentCondominioId no AuthContext para que todas as
+  // páginas de rota dinâmica ([condoId]) reajam automaticamente.
+  useEffect(() => {
+    const id = dashboardData.selectedCondo;
+    if (id && id !== 'all') {
+      setCurrentCondominio(id);
+    } else if (id === 'all') {
+      // Visão global: limpa o condomínio activo no AuthContext
+      setCurrentCondominio(null);
+    }
+  }, [dashboardData.selectedCondo, setCurrentCondominio]);
 
   const value: DashboardContextType = {
     ...dashboardData,

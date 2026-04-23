@@ -10,7 +10,7 @@ interface SidebarHeaderProps {
   userRole: string | undefined;
 
   /** Indica se a sidebar está recolhida */
-  isCollapsed: boolean; // ✅ ADICIONADO
+  isCollapsed: boolean; 
 }
 
 export default function SidebarHeader({
@@ -34,14 +34,14 @@ export default function SidebarHeader({
             transition-all duration-300
           "
         >
-          M
+          C
         </span>
 
         {/* ✅ Só mostra nome e role se NÃO estiver colapsado */}
         {!isCollapsed && (
           <div className="leading-none">
             <p className="font-extrabold text-lg sm:text-xl tracking-tighter text-zinc-900">
-              GEST<span className="text-orange-500">.</span>
+              CONDO<span className="text-orange-500">.</span>
             </p>
 
             <p

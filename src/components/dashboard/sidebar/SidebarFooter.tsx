@@ -6,6 +6,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/firebase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 type SidebarFooterProps = {
   isCollapsed: boolean;
@@ -18,31 +19,36 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ isCollapsed }) => {
   const handleLogout = async () => {
     if (isLoggingOut) return;
 
-    const ok = confirm('Tem a certeza que deseja sair?');
-    if (!ok) return;
-
-    setIsLoggingOut(true);
-    try {
-      await signOut(auth);
-      // Normalmente o teu middleware/guard trata do redirect após logout
-    } catch (err) {
-      console.error('Erro ao fazer logout:', err);
-      alert('Não foi possível sair. Tenta novamente.');
-    } finally {
-      setIsLoggingOut(false);
-    }
+    toast('Tem a certeza que deseja sair?', {
+      action: {
+        label: 'Sair',
+        onClick: async () => {
+          setIsLoggingOut(true);
+          try {
+            await signOut(auth);
+          } catch (err) {
+            console.error('Erro ao fazer logout:', err);
+            toast.error('Não foi possível sair. Tenta novamente.');
+          } finally {
+            setIsLoggingOut(false);
+          }
+        },
+      },
+      cancel: { label: 'Cancelar', onClick: () => {} },
+      duration: 6000,
+    });
   };
 
   return (
     <footer
       className={cn(
-        'border-t border-zinc-200 bg-white',
+        'border-t theme-border theme-bg-surface',
         isCollapsed ? 'py-4 px-2' : 'px-3 pb-5 pt-4',
       )}
     >
       {/* EXPANDED */}
       {!isCollapsed && (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-2">
+        <div className="rounded-2xl border theme-border theme-bg-surface p-2">
           <div className="px-2 pt-1 pb-2">
             <p className="text-xs font-semibold text-zinc-900 truncate">
               {userData?.nome ?? 'Utilizador'}
@@ -86,7 +92,7 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ isCollapsed }) => {
             aria-label="Sair"
             className={cn(
               'w-12 h-12 rounded-xl flex items-center justify-center',
-              'border border-zinc-200 bg-white',
+              'border theme-border theme-bg-surface',
               'text-red-600 hover:bg-red-50 transition-colors',
               'disabled:opacity-60 disabled:cursor-not-allowed',
             )}

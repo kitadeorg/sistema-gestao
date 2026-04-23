@@ -6,6 +6,7 @@ import { LogOut, Bell, Settings, User, ChevronDown, Loader2 } from 'lucide-react
 import { useAuthContext } from '@/contexts/AuthContext'; // 1. Usar o Contexto
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/firebase';
+import { toast } from 'sonner';
 
 /**
  * Hook customizado para gerenciar um dropdown simples.
@@ -29,17 +30,24 @@ export function DashboardHeader() {
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    try {
-      if (confirm('Tem a certeza que deseja sair?')) {
-        await signOut(auth);
-        // O middleware de autenticação fará o redirecionamento
-      }
-    } catch (error) {
-      console.error("Erro ao fazer logout:", error);
-    } finally {
-      setIsLoggingOut(false);
-      profileDropdown.close();
-    }
+    profileDropdown.close();
+    toast('Tem a certeza que deseja sair?', {
+      action: {
+        label: 'Sair',
+        onClick: async () => {
+          try {
+            await signOut(auth);
+          } catch (error) {
+            console.error("Erro ao fazer logout:", error);
+            toast.error('Não foi possível sair. Tenta novamente.');
+          } finally {
+            setIsLoggingOut(false);
+          }
+        },
+      },
+      cancel: { label: 'Cancelar', onClick: () => setIsLoggingOut(false) },
+      duration: 6000,
+    });
   };
 
   // Não renderiza nada enquanto os dados de autenticação estão a ser carregados

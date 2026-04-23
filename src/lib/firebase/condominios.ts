@@ -15,7 +15,7 @@ import {
   where,
   documentId,
 } from 'firebase/firestore';
-import type { Condominio, CondominioFormData } from '@/types';
+import type { Condominio, CondominioFormData, UserRole } from '@/types';
 
 // ─────────────────────────────────────────────
 // REFERÊNCIA DA COLEÇÃO
@@ -58,6 +58,40 @@ export const getCondominioById = async (id: string): Promise<Condominio | null> 
   const docSnap = await getDoc(docRef);
   if (!docSnap.exists()) return null;
   return mapDocToCondominio(docSnap);
+};
+
+
+// ─────────────────────────────────────────────
+// GESTÃO MULTI-TENANT
+// ─────────────────────────────────────────────
+
+/**
+ * Busca condomínios baseado no role do utilizador.
+ * Centraliza a lógica de acesso multi-condomínio.
+ */
+export const getCondominiosByUser = async (
+  role: UserRole,
+  condominioId?: string,
+  condominiosGeridos?: string[],
+): Promise<Condominio[]> => {
+
+  // ✅ Admin vê todos
+  if (role === 'admin') {
+    return getCondominios();
+  }
+
+  // ✅ Gestor vê o seu portfólio
+  if (role === 'gestor' && condominiosGeridos?.length) {
+    return getCondominiosByIds(condominiosGeridos);
+  }
+
+  // ✅ Síndico / Funcionário / Morador vê apenas o seu condomínio
+  if (condominioId) {
+    const condo = await getCondominioById(condominioId);
+    return condo ? [condo] : [];
+  }
+
+  return [];
 };
 
 /**

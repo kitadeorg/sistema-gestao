@@ -1,10 +1,12 @@
+// AuthPage.tsx — "Primeiro Acesso" em vez de "Criar Conta"
 'use client'
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Mail, Lock, User, Eye, EyeOff, ArrowRight,
-  AlertCircle, CheckCircle, Building2, Shield, Briefcase
+  AlertCircle, Building2, Shield,
+  Briefcase, KeyRound,
 } from 'lucide-react';
 import {
   createUserWithEmailAndPassword,
@@ -18,11 +20,9 @@ import {
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/firebase';
 import {
-  doc,
-  setDoc,
-  getDoc,
-  serverTimestamp,
+  doc, setDoc, getDoc, deleteDoc, serverTimestamp,
 } from 'firebase/firestore';
+import { toast } from 'sonner';
 
 /* ─────────────────────────────────────────────────────────
    TYPES
@@ -41,87 +41,88 @@ interface FormState {
   password: string;
 }
 
+interface PreRegistroData {
+  email: string;
+  nome?: string;
+  role?: string;
+  status?: string;
+  condominioId?: string;
+  condominiosGeridos?: string[];
+  telefone?: string;
+}
+
 /* ─────────────────────────────────────────────────────────
-   HELPERS
+   HELPERS  (idênticos ao original)
 ───────────────────────────────────────────────────────── */
 
-/**
- * ✅ Normaliza email: lowercase + trim
- * Importante: Firebase Auth pode ter capitalização diferente no token
- */
 function normalizeEmail(email: string): string {
   return email.toLowerCase().trim();
 }
 
-/**
- * ✅ Verifica se email está pré-autorizado pelo admin
- * Aplica normalização antes de verificar no Firestore
- */
-async function isEmailPreAuthorized(email: string): Promise<boolean> {
-  const normalizedEmail = normalizeEmail(email);
+async function getPreRegistroData(
+  email: string,
+): Promise<PreRegistroData | null> {
   try {
     const snap = await getDoc(
-      doc(db, 'usuarios_pre_registro', normalizedEmail)
+      doc(db, 'usuarios_pre_registro', normalizeEmail(email)),
     );
-    return snap.exists();
+    return snap.exists() ? (snap.data() as PreRegistroData) : null;
   } catch (error: any) {
     console.error('Erro ao verificar pré-registo:', error.code, error.message);
     throw error;
   }
 }
 
-/**
- * ✅ Cria documento do utilizador no Firestore
- * Normaliza email antes de guardar
- */
-async function createUserDocument(
+async function activateUserFromPreRegistro(
   userId: string,
-  email: string,
   name: string,
+  preData: PreRegistroData,
 ): Promise<void> {
-  const normalizedEmail = normalizeEmail(email);
+  const emailNorm = normalizeEmail(preData.email);
+
   await setDoc(doc(db, 'usuarios', userId), {
     uid: userId,
-    nome: name,
-    email: normalizedEmail,
-    role: 'morador',
-    status: 'pendente',
-    permissoes: [
-      'ver_propria_quota',
-      'pagar_quotas',
-      'reportar_problemas',
-      'receber_notificacoes',
-    ],
-    condominioId: null,
-    unidadeId: null,
+    nome: name || preData.nome || 'Utilizador',
+    email: emailNorm,
+    telefone: preData.telefone ?? null,
+    role: preData.role ?? 'morador',
+    status: preData.status === 'inativo' ? 'inativo' : 'ativo',
+    condominioId: preData.condominioId ?? null,
+    condominiosGeridos: preData.condominiosGeridos ?? [],
     isEmailVerified: false,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  await deleteDoc(doc(db, 'usuarios_pre_registro', emailNorm));
 }
 
-/**
- * ✅ Cria documento apenas se não existir (Google OAuth)
- * Normaliza email antes de guardar
- */
-async function createUserDocumentIfNew(
+async function activateGoogleUser(
   userId: string,
   email: string,
   name: string,
+  preData: PreRegistroData,
 ): Promise<void> {
   const ref = doc(db, 'usuarios', userId);
   const snap = await getDoc(ref);
+
   if (!snap.exists()) {
-    await createUserDocument(userId, email, name);
+    await activateUserFromPreRegistro(userId, name, preData);
+  } else {
+    const emailNorm = normalizeEmail(email);
+    try {
+      const preRef = doc(db, 'usuarios_pre_registro', emailNorm);
+      const preSnap = await getDoc(preRef);
+      if (preSnap.exists()) await deleteDoc(preRef);
+    } catch (err) {
+      console.warn('[activateGoogleUser] Não foi possível limpar pré-registo:', err);
+    }
   }
 }
 
-/**
- * ✅ Map de erros do Firebase para mensagens user-friendly
- */
 function mapFirebaseError(code: string): string {
   const map: Record<string, string> = {
-    'auth/email-already-in-use':   'Este email já está cadastrado.',
+    'auth/email-already-in-use':   'Este email já está registado.',
     'auth/invalid-email':          'Email inválido.',
     'auth/operation-not-allowed':  'Operação não permitida.',
     'auth/weak-password':          'Senha muito fraca (mínimo 6 caracteres).',
@@ -137,29 +138,49 @@ function mapFirebaseError(code: string): string {
 }
 
 /* ─────────────────────────────────────────────────────────
+   MODOS DA UI
+   'login'        → entrar com conta existente
+   'first-access' → primeiro acesso / activar conta
+   'forgot'       → recuperar senha
+───────────────────────────────────────────────────────── */
+
+type UIMode = 'login' | 'first-access' | 'forgot';
+
+/* ─────────────────────────────────────────────────────────
    COMPONENT
 ───────────────────────────────────────────────────────── */
 
 export default function AuthPage() {
   const router = useRouter();
 
-  const [isLogin, setIsLogin]           = useState(true);
+  const [mode, setMode]                 = useState<UIMode>('login');
   const [showPassword, setShowPassword] = useState(false);
-  const [showForgotPw, setShowForgotPw] = useState(false);
   const [isLoading, setIsLoading]       = useState(false);
-  const [successMsg, setSuccessMsg]     = useState('');
   const [errors, setErrors]             = useState<FormErrors>({});
 
   const [formData, setFormData] = useState<FormState>({
     name: '', email: '', password: '',
   });
 
-  /* ── Validation ── */
+  /* ── helpers ── */
+
+  const switchMode = (next: UIMode) => {
+    setMode(next);
+    setErrors({});
+    setFormData({ name: '', email: '', password: '' });
+    setShowPassword(false);
+  };
+
+  const isLogin       = mode === 'login';
+  const isFirstAccess = mode === 'first-access';
+  const isForgot      = mode === 'forgot';
+
+  /* ── validation ── */
 
   const validate = (): boolean => {
     const e: FormErrors = {};
 
-    if (!isLogin && !showForgotPw && !formData.name.trim()) {
+    if (isFirstAccess && !formData.name.trim()) {
       e.name = 'Nome é obrigatório.';
     }
     if (!formData.email.trim()) {
@@ -167,7 +188,7 @@ export default function AuthPage() {
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       e.email = 'Email inválido.';
     }
-    if (!showForgotPw) {
+    if (!isForgot) {
       if (!formData.password) {
         e.password = 'Senha é obrigatória.';
       } else if (formData.password.length < 6) {
@@ -179,138 +200,103 @@ export default function AuthPage() {
     return Object.keys(e).length === 0;
   };
 
-  /* ── Input change ── */
+  /* ── input change ── */
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
     setErrors(prev => {
-      const n = { ...prev };
-      delete n[name as keyof FormErrors];
-      return n;
+      const next = { ...prev };
+      delete next[name as keyof FormErrors];
+      return next;
     });
-    setSuccessMsg('');
   };
 
-  /* ── Switch login/register ── */
-
-  const switchMode = (loginMode: boolean) => {
-    setIsLogin(loginMode);
-    setErrors({});
-    setSuccessMsg('');
-    setFormData({ name: '', email: '', password: '' });
-    setShowForgotPw(false);
-    setShowPassword(false);
-  };
-
-  /* ── Submit principal ── */
+  /* ── submit principal ── */
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
-    setSuccessMsg('');
     if (!validate()) return;
 
     setIsLoading(true);
-
     try {
+      const emailNorm = normalizeEmail(formData.email);
+
+      /* ── LOGIN ── */
       if (isLogin) {
-
-        // ✅ Normaliza email antes de autenticar
-        const normalizedEmail = normalizeEmail(formData.email);
-
-        // ✅ Autentica no Firebase Auth
         const cred = await signInWithEmailAndPassword(
-          auth,
-          normalizedEmail,
-          formData.password
+          auth, emailNorm, formData.password,
         );
 
-        // ✅ Verifica se existe documento no Firestore
-        const userDoc = await getDoc(
-          doc(db, 'usuarios', cred.user.uid)
-        );
-
+        const userDoc = await getDoc(doc(db, 'usuarios', cred.user.uid));
         if (!userDoc.exists()) {
           await signOut(auth);
           throw new Error('Acesso não autorizado. Contacte o administrador.');
         }
 
-        setSuccessMsg('Login efetuado com sucesso!');
+        const data = userDoc.data();
+        if (data.status === 'inativo') {
+          await signOut(auth);
+          throw new Error('A sua conta está desativada. Contacte o administrador.');
+        }
+
+        toast.success('Login efetuado com sucesso!');
         setTimeout(() => router.push('/dashboard'), 1200);
+        return;
+      }
 
-      } else {
-
-        // ✅ Verifica se email está pré-autorizado pelo admin (com normalização)
-        const allowed = await isEmailPreAuthorized(formData.email);
-
-        if (!allowed) {
+      /* ── PRIMEIRO ACESSO ── */
+      if (isFirstAccess) {
+        // 1. Verificar convite
+        const preData = await getPreRegistroData(emailNorm);
+        if (!preData) {
           throw new Error(
-            'Email não autorizado. Contacte o administrador do condomínio.'
+            'Email não encontrado. Verifique se foi convidado pelo administrador.',
           );
         }
 
-        // ✅ Normaliza email antes de criar conta
-        const normalizedEmail = normalizeEmail(formData.email);
-
-        // ✅ Cria conta no Firebase Auth
+        // 2. Criar conta no Firebase Auth
         const cred = await createUserWithEmailAndPassword(
-          auth,
-          normalizedEmail,
-          formData.password
+          auth, emailNorm, formData.password,
         );
+        await updateProfile(cred.user, { displayName: formData.name });
 
-        await updateProfile(cred.user, {
-          displayName: formData.name,
-        });
+        // 3. Activar (migra pre_registro → usuarios)
+        await activateUserFromPreRegistro(cred.user.uid, formData.name, preData);
 
-        // ✅ Cria documento no Firestore (normalização está dentro da função)
-        await createUserDocument(
-          cred.user.uid,
-          normalizedEmail,
-          formData.name
-        );
-
-        // ✅ Envia verificação de email
+        // 4. Verificação de email
         await sendEmailVerification(cred.user);
 
-        setSuccessMsg(
-          'Conta criada! Verifique o seu email para ativar.'
-        );
-
+        toast.success('Conta activada! Verifique o email para confirmar.');
         setTimeout(() => router.push('/dashboard'), 2000);
       }
 
     } catch (err: any) {
-      if (err.message && !err.code) {
-        setErrors({ general: err.message });
-      } else {
-        setErrors({ general: mapFirebaseError(err.code) });
-      }
+      const msg = err.message && !err.code ? err.message : mapFirebaseError(err.code);
+      toast.error(msg);
+      setErrors({ general: msg });
     } finally {
       setIsLoading(false);
     }
   };
 
-  /* ── Forgot password ── */
+  /* ── forgot password ── */
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
-    setSuccessMsg('');
     if (!validate()) return;
 
     setIsLoading(true);
     try {
-      // ✅ Normaliza email antes de enviar reset
-      const normalizedEmail = normalizeEmail(formData.email);
-      await sendPasswordResetEmail(auth, normalizedEmail);
-      setSuccessMsg(
-        'Email de recuperação enviado! Verifique a sua caixa de entrada.'
-      );
-      setShowForgotPw(false);
+      await sendPasswordResetEmail(auth, normalizeEmail(formData.email));
+      toast.success('Email de recuperação enviado! Verifique a sua caixa de entrada.');
+      switchMode('login');
     } catch (err: any) {
-      setErrors({ general: mapFirebaseError(err.code) });
+      const msg = mapFirebaseError(err.code);
+      toast.error(msg);
+      setErrors({ general: msg });
     } finally {
       setIsLoading(false);
     }
@@ -326,64 +312,96 @@ export default function AuthPage() {
       provider.setCustomParameters({ prompt: 'select_account' });
       const result = await signInWithPopup(auth, provider);
 
-      // ✅ Verifica se existe documento (Google Auth bypassa o pre_registro)
-      const userDoc = await getDoc(
-        doc(db, 'usuarios', result.user.uid)
-      );
+      const userDoc = await getDoc(doc(db, 'usuarios', result.user.uid));
 
       if (!userDoc.exists()) {
-        // ✅ Verifica pré-autorização para Google também (com normalização)
-        const allowed = await isEmailPreAuthorized(
-          result.user.email ?? ''
-        );
-
-        if (!allowed) {
+        const preData = await getPreRegistroData(result.user.email ?? '');
+        if (!preData) {
           await signOut(auth);
-          throw new Error(
-            'Email não autorizado. Contacte o administrador.'
-          );
+          throw new Error('Email não autorizado. Contacte o administrador.');
         }
-
-        await createUserDocumentIfNew(
+        await activateGoogleUser(
           result.user.uid,
           result.user.email ?? '',
           result.user.displayName ?? 'Utilizador',
+          preData,
         );
+      } else {
+        const data = userDoc.data();
+        if (data.status === 'inativo') {
+          await signOut(auth);
+          throw new Error('A sua conta está desativada. Contacte o administrador.');
+        }
+        // Limpar pre_registro residual
+        try {
+          const preRef = doc(
+            db, 'usuarios_pre_registro', normalizeEmail(result.user.email ?? ''),
+          );
+          const preSnap = await getDoc(preRef);
+          if (preSnap.exists()) await deleteDoc(preRef);
+        } catch (_) { /* silencioso */ }
       }
 
-      setSuccessMsg('Login com Google efetuado!');
+      toast.success('Login com Google efetuado!');
       setTimeout(() => router.push('/dashboard'), 1200);
 
     } catch (err: any) {
-      if (err.message && !err.code) {
-        setErrors({ general: err.message });
-      } else {
-        setErrors({ general: mapFirebaseError(err.code) });
-      }
+      const msg = err.message && !err.code ? err.message : mapFirebaseError(err.code);
+      toast.error(msg);
+      setErrors({ general: msg });
     } finally {
       setIsLoading(false);
     }
   };
 
   /* ─────────────────────────────────────────────────────
+     COPY — textos que variam por modo
+  ───────────────────────────────────────────────────── */
+
+  const ui = {
+    login: {
+      tab:      'Entrar',
+      title:    'Bem-vindo de volta!',
+      subtitle: 'Entre com as suas credenciais para continuar.',
+      btn:      'Entrar',
+    },
+    'first-access': {
+      tab:      'Primeiro acesso',
+      title:    'Activar conta',
+      // ↓ mensagem que deixa claro o fluxo ao utilizador
+      subtitle: 'Recebeu um convite? Defina a sua senha e active a sua conta.',
+      btn:      'Activar conta',
+    },
+    forgot: {
+      tab:      '',
+      title:    'Recuperar senha',
+      subtitle: 'Insira o seu email para receber o link de recuperação.',
+      btn:      'Enviar link',
+    },
+  } satisfies Record<UIMode, { tab: string; title: string; subtitle: string; btn: string }>;
+
+  /* ─────────────────────────────────────────────────────
      RENDER
   ───────────────────────────────────────────────────── */
 
-  const isRegister    = !isLogin;
-  const showNameField = isRegister && !showForgotPw;
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4 sm:p-6">
-      <div className="max-w-5xl w-full flex bg-white shadow-2xl rounded-3xl overflow-hidden min-h-[580px]">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100
+                    flex items-center justify-center p-4 sm:p-6">
+      <div className="max-w-5xl w-full flex bg-white shadow-2xl rounded-3xl
+                      overflow-hidden min-h-[580px]">
 
         {/* ── Painel esquerdo ── */}
-        <div className="hidden md:flex w-1/2 bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 p-12 flex-col justify-between relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-32 -mt-32" />
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-white/5 rounded-full -ml-48 -mb-48" />
+        <div className="hidden md:flex w-1/2 bg-gradient-to-br
+                        from-orange-500 via-orange-600 to-orange-700
+                        p-12 flex-col justify-between relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5
+                          rounded-full -mr-32 -mt-32" />
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-white/5
+                          rounded-full -ml-48 -mb-48" />
 
           <div className="relative z-10">
             <h1 className="text-white text-4xl font-bold mb-3">
-              MULTI<span className="text-orange-200">.</span>GEST
+              NETSUL<span className="text-orange-200"> CONDO</span>
             </h1>
             <p className="text-orange-100 text-lg">
               Gestão inteligente para condomínios
@@ -392,12 +410,25 @@ export default function AuthPage() {
 
           <div className="relative z-10 space-y-6">
             {[
-              { Icon: Building2, title: 'Multi-Condomínio',  desc: 'Gerencie múltiplos condomínios numa plataforma' },
-              { Icon: Shield,    title: 'Seguro',             desc: 'Dados protegidos com encriptação de ponta' },
-              { Icon: Briefcase, title: 'Profissional',       desc: 'Ferramentas para gestão completa' },
+              {
+                Icon: Building2,
+                title: 'Multi-Condomínio',
+                desc:  'Gerencie múltiplos condomínios numa plataforma',
+              },
+              {
+                Icon: Shield,
+                title: 'Seguro',
+                desc:  'Dados protegidos com encriptação de ponta',
+              },
+              {
+                Icon: Briefcase,
+                title: 'Profissional',
+                desc:  'Ferramentas para gestão completa',
+              },
             ].map(({ Icon, title, desc }) => (
               <div key={title} className="flex items-start space-x-4">
-                <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                <div className="w-12 h-12 bg-white/20 rounded-lg
+                                flex items-center justify-center flex-shrink-0">
                   <Icon className="w-6 h-6 text-white" />
                 </div>
                 <div>
@@ -410,36 +441,34 @@ export default function AuthPage() {
         </div>
 
         {/* ── Painel direito (formulário) ── */}
-        <div className="w-full md:w-1/2 p-8 sm:p-12 flex flex-col justify-center overflow-y-auto">
+        <div className="w-full md:w-1/2 p-8 sm:p-12 flex flex-col
+                        justify-center overflow-y-auto">
 
           {/* Mobile logo */}
           <div className="md:hidden mb-8 text-center">
             <h1 className="text-3xl font-bold text-gray-800">
-              MULTI<span className="text-orange-500">.</span>GEST
+              NETSUL<span className="text-orange-500"> CONDO</span>
             </h1>
           </div>
 
-          {/* Feedback */}
-          {successMsg && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2 text-green-700 text-sm">
-              <CheckCircle className="w-5 h-5 flex-shrink-0" />
-              <span>{successMsg}</span>
-            </div>
-          )}
+          {/* Feedback — apenas erros gerais permanecem inline */}
           {errors.general && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm">
+            <div className="mb-4 p-3 bg-red-50 border border-red-200
+                            rounded-lg flex items-center gap-2
+                            text-red-700 text-sm">
               <AlertCircle className="w-5 h-5 flex-shrink-0" />
               <span>{errors.general}</span>
             </div>
           )}
 
-          {/* Tabs */}
-          {!showForgotPw && (
+          {/* ── Tabs (ocultas no modo "forgot") ── */}
+          {!isForgot && (
             <div className="bg-gray-100 p-1.5 rounded-full flex mb-8 w-fit">
               <button
                 type="button"
-                onClick={() => switchMode(true)}
-                className={`px-8 py-2.5 rounded-full font-medium transition-all duration-200 ${
+                onClick={() => switchMode('login')}
+                className={`px-6 py-2.5 rounded-full font-medium
+                            transition-all duration-200 ${
                   isLogin
                     ? 'bg-orange-500 text-white shadow-md'
                     : 'text-gray-600 hover:text-gray-800'
@@ -447,50 +476,57 @@ export default function AuthPage() {
               >
                 Entrar
               </button>
+
               <button
                 type="button"
-                onClick={() => switchMode(false)}
-                className={`px-8 py-2.5 rounded-full font-medium transition-all duration-200 ${
-                  isRegister
+                onClick={() => switchMode('first-access')}
+                className={`px-6 py-2.5 rounded-full font-medium
+                            transition-all duration-200 flex items-center gap-1.5 ${
+                  isFirstAccess
                     ? 'bg-orange-500 text-white shadow-md'
                     : 'text-gray-600 hover:text-gray-800'
                 }`}
               >
-                Criar conta
+                {/* ícone de chave reforça o conceito "primeiro acesso" */}
+                <KeyRound className="w-4 h-4" />
+                Primeiro acesso
               </button>
             </div>
           )}
 
-          {/* Título */}
+          {/* ── Título + subtítulo ── */}
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-gray-800 mb-1">
-              {showForgotPw
-                ? 'Recuperar senha'
-                : isLogin
-                ? 'Bem-vindo de volta!'
-                : 'Criar conta'}
+              {ui[mode].title}
             </h2>
             <p className="text-gray-500 text-sm">
-              {showForgotPw
-                ? 'Insira o seu email para receber o link de recuperação.'
-                : isLogin
-                ? 'Entre com as suas credenciais para continuar.'
-                : 'Apenas emails autorizados podem criar conta.'}
+              {ui[mode].subtitle}
             </p>
+
+            {/* Badge informativo no primeiro acesso */}
+            {isFirstAccess && (
+              <div className="mt-3 p-2.5 bg-orange-50 border border-orange-200
+                              rounded-lg flex items-center gap-2 text-orange-700 text-xs">
+                <KeyRound className="w-4 h-4 flex-shrink-0" />
+                <span>
+                  O seu email tem de estar na lista de convidados do condomínio.
+                </span>
+              </div>
+            )}
           </div>
 
-          {/* Formulário */}
+          {/* ── Formulário ── */}
           <form
-            onSubmit={showForgotPw ? handleForgotPassword : handleSubmit}
+            onSubmit={isForgot ? handleForgotPassword : handleSubmit}
             className="space-y-4"
             noValidate
           >
-
-            {/* Nome */}
-            {showNameField && (
+            {/* Nome — apenas no primeiro acesso */}
+            {isFirstAccess && (
               <div>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2
+                                  text-gray-400 w-5 h-5 pointer-events-none" />
                   <input
                     type="text"
                     name="name"
@@ -499,7 +535,8 @@ export default function AuthPage() {
                     placeholder="Nome completo"
                     autoComplete="name"
                     disabled={isLoading}
-                    className={`w-full pl-11 pr-4 py-3 border rounded-lg outline-none transition-all text-black duration-200 disabled:bg-gray-100 ${
+                    className={`w-full pl-11 pr-4 py-3 border rounded-lg outline-none
+                                transition-all text-black duration-200 disabled:bg-gray-100 ${
                       errors.name
                         ? 'border-red-400 focus:ring-2 focus:ring-red-200'
                         : 'border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200'
@@ -513,7 +550,8 @@ export default function AuthPage() {
             {/* Email */}
             <div>
               <div className="relative">
-                <Mail className="absolute left-3  top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2
+                                text-gray-400 w-5 h-5 pointer-events-none" />
                 <input
                   type="email"
                   name="email"
@@ -522,7 +560,8 @@ export default function AuthPage() {
                   placeholder="Email"
                   autoComplete="email"
                   disabled={isLoading}
-                  className={`w-full pl-11 text-black pr-4 py-3 border rounded-lg outline-none transition-all duration-200 disabled:bg-gray-100 ${
+                  className={`w-full pl-11 text-black pr-4 py-3 border rounded-lg
+                              outline-none transition-all duration-200 disabled:bg-gray-100 ${
                     errors.email
                       ? 'border-red-400 focus:ring-2 focus:ring-red-200'
                       : 'border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200'
@@ -532,20 +571,22 @@ export default function AuthPage() {
               {errors.email && <FieldError msg={errors.email} />}
             </div>
 
-            {/* Password */}
-            {!showForgotPw && (
+            {/* Password — oculta no modo "forgot" */}
+            {!isForgot && (
               <div>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2
+                                  text-gray-400 w-5 h-5 pointer-events-none" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     name="password"
                     value={formData.password}
                     onChange={handleInputChange}
-                    placeholder="Senha"
+                    placeholder={isFirstAccess ? 'Definir senha' : 'Senha'}
                     autoComplete={isLogin ? 'current-password' : 'new-password'}
                     disabled={isLoading}
-                    className={`w-full pl-11 text-black pr-12 py-3 border rounded-lg outline-none transition-all duration-200 disabled:bg-gray-100 ${
+                    className={`w-full pl-11 text-black pr-12 py-3 border rounded-lg
+                                outline-none transition-all duration-200 disabled:bg-gray-100 ${
                       errors.password
                         ? 'border-red-400 focus:ring-2 focus:ring-red-200'
                         : 'border-gray-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-200'
@@ -556,87 +597,98 @@ export default function AuthPage() {
                     onClick={() => setShowPassword(v => !v)}
                     disabled={isLoading}
                     aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                    className="absolute right-3 top-1/2 -translate-y-1/2
+                               text-gray-400 hover:text-gray-600 transition"
                   >
                     {showPassword
                       ? <EyeOff className="w-5 h-5" />
-                      : <Eye className="w-5 h-5" />}
+                      : <Eye    className="w-5 h-5" />}
                   </button>
                 </div>
                 {errors.password && <FieldError msg={errors.password} />}
               </div>
             )}
 
-            {/* Esqueceu a senha */}
+            {/* Esqueceu a senha — só no login */}
             {isLogin && (
               <div className="text-right">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowForgotPw(v => !v);
-                    setErrors({});
-                    setSuccessMsg('');
-                  }}
+                  onClick={() => switchMode('forgot')}
                   disabled={isLoading}
-                  className="text-sm text-orange-500 hover:text-orange-600 font-medium transition"
+                  className="text-sm text-orange-500 hover:text-orange-600
+                             font-medium transition"
                 >
-                  {showForgotPw ? '← Voltar ao login' : 'Esqueceu a senha?'}
+                  Esqueceu a senha?
                 </button>
               </div>
+            )}
+
+            {/* Voltar ao login — só no forgot */}
+            {isForgot && (
+              <button
+                type="button"
+                onClick={() => switchMode('login')}
+                disabled={isLoading}
+                className="text-sm text-orange-500 hover:text-orange-600
+                           font-medium transition"
+              >
+                ← Voltar ao login
+              </button>
             )}
 
             {/* Submit */}
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white py-3.5 rounded-lg font-bold
-                         hover:from-orange-600 hover:to-orange-700 transition-all duration-200 mt-2
+              className="w-full bg-gradient-to-r from-orange-500 to-orange-600
+                         text-white py-3.5 rounded-lg font-bold mt-2
+                         hover:from-orange-600 hover:to-orange-700
+                         transition-all duration-200
                          flex items-center justify-center gap-2
                          disabled:opacity-50 disabled:cursor-not-allowed
                          shadow-lg hover:shadow-xl hover:-translate-y-0.5"
             >
               {isLoading ? (
-                <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span className="w-5 h-5 border-2 border-white
+                                 border-t-transparent rounded-full animate-spin" />
               ) : (
                 <>
-                  <span>
-                    {showForgotPw
-                      ? 'Enviar link'
-                      : isLogin
-                      ? 'Entrar'
-                      : 'Criar conta'}
-                  </span>
+                  <span>{ui[mode].btn}</span>
                   <ArrowRight className="w-5 h-5" />
                 </>
               )}
             </button>
           </form>
 
-          {/* Google */}
-          {!showForgotPw && (
+          {/* Google — disponível em login e primeiro acesso */}
+          {!isForgot && (
             <>
-              <div className="flex items-center my-6">
-                <div className="flex-1 border-t border-gray-200" />
-                <span className="px-4 text-gray-400 text-sm">ou</span>
-                <div className="flex-1 border-t border-gray-200" />
+              <div className="flex items-center gap-3 my-5">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-xs text-gray-400">ou</span>
+                <div className="flex-1 h-px bg-gray-200" />
               </div>
 
               <button
                 type="button"
                 onClick={handleGoogleLogin}
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-3 border border-gray-300 rounded-lg py-3
-                           hover:bg-gray-50 hover:border-gray-400 transition-all duration-200
-                           disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium text-gray-700"
+                className="w-full flex items-center justify-center gap-3
+                           border border-gray-300 rounded-lg py-3
+                           text-gray-700 font-medium
+                           hover:bg-gray-50 transition-all duration-200
+                           disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <GoogleIcon />
-                Continuar com Google
+                {isLogin ? 'Entrar com Google' : 'Activar com Google'}
               </button>
             </>
           )}
 
           <p className="mt-8 text-center text-gray-400 text-xs">
-            © {new Date().getFullYear()} MULTI<span className="text-orange-400">.</span>GEST
+            © {new Date().getFullYear()} NETSUL{' '}
+            <span className="text-orange-600">CONDO</span>.
           </p>
         </div>
       </div>
@@ -659,11 +711,28 @@ function FieldError({ msg }: { msg: string }) {
 
 function GoogleIcon() {
   return (
-    <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden>
-      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+    <svg
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+      />
     </svg>
   );
 }
