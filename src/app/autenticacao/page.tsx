@@ -23,7 +23,6 @@ import {
   doc, setDoc, getDoc, deleteDoc, serverTimestamp,
 } from 'firebase/firestore';
 import { toast } from 'sonner';
-
 /* ─────────────────────────────────────────────────────────
    TYPES
 ───────────────────────────────────────────────────────── */
@@ -239,6 +238,13 @@ export default function AuthPage() {
         if (data.status === 'inativo') {
           await signOut(auth);
           throw new Error('A sua conta está desativada. Contacte o administrador.');
+        }
+
+        // Primeiro login com credenciais temporárias → forçar setup
+        if (data.mustChangeCredentials) {
+          toast.success('Primeiro acesso! Vamos configurar a sua conta.');
+          setTimeout(() => router.push('/dashboard/setup'), 1000);
+          return;
         }
 
         toast.success('Login efetuado com sucesso!');

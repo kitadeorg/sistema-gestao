@@ -11,6 +11,7 @@ import {
   type CreateUserData,
   type UpdateUserData,
 } from '@/lib/firebase/users';
+import { inviteUser } from '@/lib/inviteUser';
 import { getCondominios } from '@/lib/firebase/condominios';
 import { validateEmail } from '@/lib/validations/emailDnsValidator';
 import type { Condominio } from '@/types';
@@ -94,6 +95,8 @@ export default function UserModal({ user, onClose, onSuccess }: UserModalProps) 
   // ── Estado de submissão ──
   const [submitting, setSubmitting] = useState(false);
   const [error,      setError]      = useState<string | null>(null);
+  // Credenciais de backup quando o email falha
+  const [credenciaisBackup, setCredenciaisBackup] = useState<{ username: string; password: string } | null>(null);
 
   // Derivados de role
   const needsSingleCondo = ROLES_SINGLE_CONDO.includes(role);
@@ -246,7 +249,7 @@ export default function UserModal({ user, onClose, onSuccess }: UserModalProps) 
         await updateUser(user.id, payload);
 
       } else {
-        // ── Criar ────────────────────────────────────────────
+        // ── Criar — usa inviteUser para gerar credenciais e enviar email ──
         const condoPayload: Partial<CreateUserData> = {};
 
         if (needsSingleCondo) {
@@ -265,11 +268,26 @@ export default function UserModal({ user, onClose, onSuccess }: UserModalProps) 
           status,
           ...condoPayload,
         };
-        await createUser(payload);
+
+        const result = await inviteUser(payload);
+
+        if (result.emailSent) {
+          toast.success(`Convite enviado para ${email.trim().toLowerCase()}!`);
+          onSuccess();
+        } else {
+          // Email falhou mas a conta foi criada — mostrar credenciais no ecrã
+          // para o admin poder partilhar manualmente
+          setCredenciaisBackup({ username: result.username, password: result.password });
+          toast.warning('Conta criada! Email falhou — guarda as credenciais abaixo.', { duration: 8000 });
+          // Não fecha o modal — mostra as credenciais
+        }
+        return; // sai antes do onSuccess() abaixo
       }
 
-      toast.success(isEdit ? 'Utilizador actualizado com sucesso.' : 'Utilizador criado com sucesso.');
-      onSuccess();
+      if (isEdit) {
+        toast.success('Utilizador actualizado com sucesso.');
+        onSuccess();
+      }
 
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Erro inesperado. Tente novamente.';
@@ -391,6 +409,51 @@ export default function UserModal({ user, onClose, onSuccess }: UserModalProps) 
               <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 flex gap-2">
                 <span className="mt-0.5">⚠️</span>
                 <span>{error}</span>
+              </div>
+            )}
+
+            {/* Credenciais de backup — quando o email falhou */}
+            {credenciaisBackup && (
+              <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-amber-600 text-base">⚠️</span>
+                  <p className="text-sm font-bold text-amber-800">
+                    Email não enviado — partilha estas credenciais manualmente
+                  </p>
+                </div>
+                <div className="bg-white rounded-lg border border-amber-200 p-3 space-y-2 font-mono text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-zinc-500 text-xs">Email:</span>
+                    <span className="font-semibold text-zinc-900 text-xs">{email.trim().toLowerCase()}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-zinc-500 text-xs">Utilizador:</span>
+                    <span className="font-semibold text-zinc-900">{credenciaisBackup.username}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-zinc-500 text-xs">Senha temp.:</span>
+                    <span className="font-bold text-orange-600 tracking-widest">{credenciaisBackup.password}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(
+                      `Email: ${email.trim().toLowerCase()}\nSenha: ${credenciaisBackup.password}`
+                    );
+                    toast.success('Credenciais copiadas!');
+                  }}
+                  className="w-full py-2 text-xs font-semibold text-amber-700 border border-amber-300 rounded-lg hover:bg-amber-100 transition-colors"
+                >
+                  Copiar credenciais
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setCredenciaisBackup(null); onSuccess(); }}
+                  className="w-full py-2 text-xs font-semibold text-zinc-600 border border-zinc-200 rounded-lg hover:bg-zinc-50 transition-colors"
+                >
+                  Já guardei — fechar
+                </button>
               </div>
             )}
 
