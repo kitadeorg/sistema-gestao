@@ -293,9 +293,14 @@ export async function updateUser(userId: string, data: UpdateUserData): Promise<
  * Eliminar utilizador.
  * ✅ Apaga de `usuarios`.
  * ✅ Apaga também de `usuarios_pre_registro` se existir.
+ * ❌ Bloqueia eliminação de utilizadores com role 'admin'.
  */
 export async function deleteUser(userId: string): Promise<void> {
   const usuario = await getUserById(userId);
+
+  if (usuario?.role === 'admin') {
+    throw new Error('Não é permitido eliminar uma conta de Administrador.');
+  }
 
   await deleteDoc(doc(db, 'usuarios', userId));
 

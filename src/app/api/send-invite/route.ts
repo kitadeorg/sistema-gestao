@@ -113,7 +113,7 @@ function buildEmailHtml(p: {
           <tr>
             <td style="padding:36px 40px;">
               <h2 style="margin:0 0 8px;color:#09090b;font-size:20px;font-weight:700;">
-                Bem-vindo${p.nome ? `, ${p.nome.split(' ')[0]}` : ''}! 👋
+                Bem-vindo${p.nome ? `, ${p.nome.split(' ')[0]}` : ''}! 
               </h2>
               <p style="margin:0 0 24px;color:#71717a;font-size:14px;line-height:1.6;">
                 A sua conta foi criada com o perfil de
@@ -149,7 +149,7 @@ function buildEmailHtml(p: {
               <!-- Aviso -->
               <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:14px 18px;margin-bottom:28px;">
                 <p style="margin:0;font-size:13px;color:#9a3412;line-height:1.5;">
-                  ⚠️ <strong>Importante:</strong> Após o primeiro login ser-lhe-á pedido
+                  <strong>Importante:</strong> Após o primeiro login ser-lhe-á pedido
                   que defina o seu nome e uma senha pessoal. As credenciais acima são temporárias.
                 </p>
               </div>

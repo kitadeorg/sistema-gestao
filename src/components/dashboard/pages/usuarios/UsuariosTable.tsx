@@ -178,9 +178,10 @@ export default function UsuariosTable({
             ) : (
               users.map((u) => {
                 const isSelf     = !!currentUid && u.id === currentUid;
+                const isAdminRow = u.role === 'admin';
                 const canManage  = isAdmin;
-                const canDelete  = canManage && !isSelf;
-                const canToggle  = canManage && !isSelf;
+                const canDelete  = canManage && !isSelf && !isAdminRow;
+                const canToggle  = canManage && !isSelf && !isAdminRow;
                 const toggleLabel = u.status === 'ativo' ? 'Desativar' : 'Ativar';
 
                 // Linha com fundo suave se e-mail problemático
@@ -298,9 +299,10 @@ export default function UsuariosTable({
         ) : (
           users.map((u) => {
             const isSelf     = !!currentUid && u.id === currentUid;
+            const isAdminRow = u.role === 'admin';
             const canManage  = isAdmin;
-            const canDelete  = canManage && !isSelf;
-            const canToggle  = canManage && !isSelf;
+            const canDelete  = canManage && !isSelf && !isAdminRow;
+            const canToggle  = canManage && !isSelf && !isAdminRow;
             const toggleLabel = u.status === 'ativo' ? 'Desativar' : 'Ativar';
 
             const rowAlert =

@@ -81,7 +81,6 @@ function CondoSelector() {
 export default function DashboardAdminContent() {
   const { userData } = useAuthContext();
 
-  // ✅ FONTE ÚNICA DE VERDADE — mesmo estado que a Sidebar e Topbar usam
   const { selectedCondo, setSelectedCondo, condominiosList, loading: dashLoading } = useDashboardContext();
 
   const endDate = useMemo(() => new Date(), []);
@@ -134,7 +133,7 @@ export default function DashboardAdminContent() {
           </p>
           <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 mt-0.5">
             {saudacao},{' '}
-            <span className="text-orange-500">{userData?.nome?.split(' ')[0]}</span> 👋
+            <span className="text-orange-500">{userData?.nome?.split(' ')[0]}</span>
           </h1>
           <p className="text-zinc-500 mt-1 text-sm">
             {isGlobal

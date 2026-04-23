@@ -12,6 +12,7 @@ import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/firebase';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 // ─────────────────────────────────────────────
 // HOOK DROPDOWN
@@ -49,16 +50,14 @@ export function Topbar() {
 
   const condoDropdown    = useDropdown();
   const profileDropdown  = useDropdown();
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const handleLogout = async () => {
-    toast('Tem a certeza que deseja sair?', {
-      action: {
-        label: 'Sair',
-        onClick: async () => { await signOut(auth); },
-      },
-      cancel: { label: 'Cancelar', onClick: () => {} },
-      duration: 6000,
-    });
+    setIsLoggingOut(true);
+    setShowConfirm(false);
+    await signOut(auth);
+    setIsLoggingOut(false);
   };
 
   const handleSelectCondo = (condoId: string) => {
@@ -80,6 +79,15 @@ export function Topbar() {
 
   return (
     <header className="h-14 sm:h-16 theme-bg-surface backdrop-blur-md sticky top-0 z-30 px-3 sm:px-5 lg:px-8 flex items-center justify-between border-b theme-border-soft" style={{ backgroundColor: 'var(--bg-surface)' }}>
+      <ConfirmDialog
+        open={showConfirm}
+        title="Tem a certeza que deseja sair?"
+        message="A sua sessão será encerrada."
+        confirmLabel="Sair"
+        onConfirm={handleLogout}
+        onCancel={() => setShowConfirm(false)}
+        loading={isLoggingOut}
+      />
 
       {/* ── LADO ESQUERDO ── */}
       <div className="flex items-center gap-3">
@@ -216,7 +224,7 @@ export function Topbar() {
 
               <div className="p-2 border-t border-zinc-100">
                 <button
-                  onClick={handleLogout}
+                  onClick={() => { profileDropdown.close(); setShowConfirm(true); }}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-red-600 hover:bg-red-50 transition-colors text-left"
                 >
                   <LogOut size={15} />

@@ -85,6 +85,13 @@ export default function UsuariosContent() {
   };
 
   const handleDelete = async (userId: string) => {
+    // Encontrar o utilizador para verificar o role
+    const target = users.find(u => u.id === userId);
+    if (target?.role === 'admin') {
+      toast.error('Não é permitido eliminar uma conta de Administrador.');
+      return;
+    }
+
     toast('Eliminar utilizador?', {
       description: 'Esta acção não pode ser desfeita.',
       action: {

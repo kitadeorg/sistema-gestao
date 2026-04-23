@@ -3,10 +3,11 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { LogOut, Bell, Settings, User, ChevronDown, Loader2 } from 'lucide-react';
-import { useAuthContext } from '@/contexts/AuthContext'; // 1. Usar o Contexto
+import { useAuthContext } from '@/contexts/AuthContext';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase/firebase';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 /**
  * Hook customizado para gerenciar um dropdown simples.
@@ -27,27 +28,19 @@ export function DashboardHeader() {
   const { user: firebaseUser, userData, loading } = useAuthContext();
   const profileDropdown = useDropdown();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showConfirm,  setShowConfirm]  = useState(false);
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    profileDropdown.close();
-    toast('Tem a certeza que deseja sair?', {
-      action: {
-        label: 'Sair',
-        onClick: async () => {
-          try {
-            await signOut(auth);
-          } catch (error) {
-            console.error("Erro ao fazer logout:", error);
-            toast.error('Não foi possível sair. Tenta novamente.');
-          } finally {
-            setIsLoggingOut(false);
-          }
-        },
-      },
-      cancel: { label: 'Cancelar', onClick: () => setIsLoggingOut(false) },
-      duration: 6000,
-    });
+    setShowConfirm(false);
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      toast.error('Não foi possível sair. Tenta novamente.');
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   // Não renderiza nada enquanto os dados de autenticação estão a ser carregados
@@ -69,6 +62,15 @@ export function DashboardHeader() {
 
   return (
     <header className="bg-white/80 backdrop-blur-md sticky top-0 z-40">
+      <ConfirmDialog
+        open={showConfirm}
+        title="Tem a certeza que deseja sair?"
+        message="A sua sessão será encerrada."
+        confirmLabel="Sair"
+        onConfirm={handleLogout}
+        onCancel={() => setShowConfirm(false)}
+        loading={isLoggingOut}
+      />
       <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
@@ -123,7 +125,7 @@ export function DashboardHeader() {
                     </Link>
                     <div className="h-px bg-zinc-100 my-1"></div>
                     <button
-                      onClick={handleLogout}
+                      onClick={() => { profileDropdown.close(); setShowConfirm(true); }}
                       disabled={isLoggingOut}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-semibold text-red-500 hover:bg-red-50 disabled:opacity-50"
                     >

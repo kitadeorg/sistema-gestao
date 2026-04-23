@@ -139,7 +139,6 @@ export async function validateEmailBatch(emails: string[]): Promise<BatchValidat
         invalid.push(result.value);
       }
     } else {
-      // Promise rejeitada por erro inesperado — trata como inválido
       invalid.push({
         email: emails[index].trim().toLowerCase(),
         valid: false,

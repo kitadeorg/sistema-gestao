@@ -7,6 +7,7 @@ import { auth } from '@/lib/firebase/firebase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 
 type SidebarFooterProps = {
   isCollapsed: boolean;
@@ -15,28 +16,19 @@ type SidebarFooterProps = {
 const SidebarFooter: React.FC<SidebarFooterProps> = ({ isCollapsed }) => {
   const { userData } = useAuthContext();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showConfirm,  setShowConfirm]  = useState(false);
 
   const handleLogout = async () => {
-    if (isLoggingOut) return;
-
-    toast('Tem a certeza que deseja sair?', {
-      action: {
-        label: 'Sair',
-        onClick: async () => {
-          setIsLoggingOut(true);
-          try {
-            await signOut(auth);
-          } catch (err) {
-            console.error('Erro ao fazer logout:', err);
-            toast.error('Não foi possível sair. Tenta novamente.');
-          } finally {
-            setIsLoggingOut(false);
-          }
-        },
-      },
-      cancel: { label: 'Cancelar', onClick: () => {} },
-      duration: 6000,
-    });
+    setIsLoggingOut(true);
+    setShowConfirm(false);
+    try {
+      await signOut(auth);
+    } catch (err) {
+      console.error('Erro ao fazer logout:', err);
+      toast.error('Não foi possível sair. Tenta novamente.');
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   return (
@@ -46,6 +38,15 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ isCollapsed }) => {
         isCollapsed ? 'py-4 px-2' : 'px-3 pb-5 pt-4',
       )}
     >
+      <ConfirmDialog
+        open={showConfirm}
+        title="Tem a certeza que deseja sair?"
+        message="A sua sessão será encerrada."
+        confirmLabel="Sair"
+        onConfirm={handleLogout}
+        onCancel={() => setShowConfirm(false)}
+        loading={isLoggingOut}
+      />
       {/* EXPANDED */}
       {!isCollapsed && (
         <div className="rounded-2xl border theme-border theme-bg-surface p-2">
@@ -59,7 +60,7 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ isCollapsed }) => {
           </div>
 
           <button
-            onClick={handleLogout}
+            onClick={() => setShowConfirm(true)}
             disabled={isLoggingOut}
             className={cn(
               'w-full flex items-center justify-center gap-2 rounded-xl px-3 py-2.5',
@@ -87,7 +88,7 @@ const SidebarFooter: React.FC<SidebarFooterProps> = ({ isCollapsed }) => {
       {isCollapsed && (
         <div className="relative group flex justify-center">
           <button
-            onClick={handleLogout}
+            onClick={() => setShowConfirm(true)}
             disabled={isLoggingOut}
             aria-label="Sair"
             className={cn(
