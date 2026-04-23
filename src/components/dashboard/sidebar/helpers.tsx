@@ -19,7 +19,7 @@ interface RoleConfig {
 
 const roleConfig: Record<UserRole, RoleConfig> = {
   admin: {
-    label: 'Super Admin',
+    label: 'Administrador',
     icon: <KeyRound className="w-4 h-4" />,
   },
   gestor: {
@@ -31,7 +31,7 @@ const roleConfig: Record<UserRole, RoleConfig> = {
     icon: <Landmark className="w-4 h-4" />,
   },
   funcionario: {
-    label: 'Operacional',
+    label: 'Funcionário',
     icon: <Wrench className="w-4 h-4" />,
   },
   morador: {

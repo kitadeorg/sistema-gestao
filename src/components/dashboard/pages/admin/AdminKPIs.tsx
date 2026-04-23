@@ -96,37 +96,54 @@ const kpiConfig: KpiConfigItem[] = [
   {
     title: 'Receita Global',
     icon: <DollarSign size={20} />,
-    getValue: (data) => 
-      data ? `${(data.receitaTotal / 1000).toFixed(1)}k Kz` : '0,0k Kz',
+    getValue: (data) => {
+      if (!data) return '0,0k Kz';
+      const v = data.receitaTotal;
+      if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M Kz`;
+      if (v >= 1_000)     return `${(v / 1_000).toFixed(1)}k Kz`;
+      return `${v.toLocaleString('pt-AO')} Kz`;
+    },
     getTrend: (data) => ({
-      text: 'Últimos 30d',
-      status: 'neutral'
+      text: data && data.receitaTotal > 0 ? 'Com receita' : 'Sem receita',
+      status: data && data.receitaTotal > 0 ? 'positive' : 'neutral',
     }),
   },
   {
     title: 'Total Unidades',
     icon: <Users size={20} />,
     getValue: (data) => data ? data.totalUnidades.toString() : '0',
-    getTrend: (data) => ({ text: 'Atual', status: 'info' }),
-  },
-  {
-    title: 'Inadimplência',
-    icon: <Activity size={20} />,
-    getValue: (data) => 
-      data ? `${data.taxaInadimplenciaMedia.toFixed(1)}%` : '0.0%',
     getTrend: (data) => ({
-      text: 'Estável',
-      status: 'neutral',
+      text: data ? `${data.totalMoradores} moradores` : 'Sem dados',
+      status: 'info',
     }),
   },
   {
-    title: 'Manutenção',
+    title: 'Inadimplência Média',
+    icon: <Activity size={20} />,
+    getValue: (data) =>
+      data ? `${data.taxaInadimplenciaMedia.toFixed(1)}%` : '0.0%',
+    getTrend: (data) => {
+      const taxa = data?.taxaInadimplenciaMedia ?? 0;
+      return {
+        text: taxa > 20 ? 'Crítica' : taxa > 10 ? 'Elevada' : taxa > 0 ? 'Normal' : 'Sem atrasos',
+        status: taxa > 20 ? 'negative' : taxa > 10 ? 'negative' : taxa > 0 ? 'neutral' : 'positive',
+      };
+    },
+  },
+  {
+    title: 'Ocorrências Abertas',
     icon: <AlertCircle size={20} />,
-    getValue: (data) => 
+    getValue: (data) =>
       data ? data.ocorrenciasAbertas.toString() : '0',
     getTrend: (data) => ({
-      text: data && data.ocorrenciasAbertas > 0 ? `${data.ocorrenciasAbertas} aberta(s)` : 'Sem alertas',
-      status: data && data.ocorrenciasAbertas > 0 ? 'negative' : 'positive',
+      text: data && data.ocorrenciasAbertas > 0
+        ? `${data.ocorrenciasAbertas} por resolver`
+        : 'Sem pendentes',
+      status: data && data.ocorrenciasAbertas > 10
+        ? 'negative'
+        : data && data.ocorrenciasAbertas > 0
+          ? 'neutral'
+          : 'positive',
     }),
   },
 ];

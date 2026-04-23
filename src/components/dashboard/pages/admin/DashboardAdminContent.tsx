@@ -8,11 +8,125 @@ import { useDashboardContext } from '@/contexts/DashboardContext';
 import { useAuthContext } from '@/contexts/AuthContext';
 import AdminKPIs from './AdminKPIs';
 import AdminCharts from './AdminCharts';
+import AdminAlerts from './AdminAlerts';
+import type { CondominioPerfomance } from '@/types/admin';
 import {
-  Building2, Globe, LayoutGrid, ChevronDown, Check,
+  Building2, Globe, LayoutGrid, ChevronDown, Check, TrendingUp, TrendingDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useRef, useEffect } from 'react';
+
+/* ── Tabela de performance por condomínio ── */
+function CondominiosPerformanceTable({
+  condominios,
+  isLoading,
+}: {
+  condominios: CondominioPerfomance[];
+  isLoading: boolean;
+}) {
+  const formatMoney = (v: number) => {
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M Kz`;
+    if (v >= 1_000)     return `${(v / 1_000).toFixed(1)}k Kz`;
+    return `${v.toLocaleString('pt-AO')} Kz`;
+  };
+
+  // Ordenar por receita desc
+  const sorted = [...condominios].sort((a, b) => b.receita - a.receita);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <Building2 size={18} className="text-orange-500" />
+        <h2 className="text-base font-semibold text-zinc-900">Performance por Condomínio</h2>
+        <span className="px-2 py-0.5 bg-zinc-100 text-zinc-600 text-xs font-semibold rounded-full">
+          {condominios.length}
+        </span>
+      </div>
+
+      {/* Desktop */}
+      <div className="hidden md:block rounded-2xl border border-zinc-200 bg-white overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-zinc-50 border-b border-zinc-200">
+            <tr>
+              <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">#</th>
+              <th className="text-left px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">Condomínio</th>
+              <th className="text-right px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">Unidades</th>
+              <th className="text-right px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">Moradores</th>
+              <th className="text-right px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">Receita</th>
+              <th className="text-right px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">Inadimplência</th>
+              <th className="text-center px-4 py-3 text-xs font-bold uppercase tracking-wider text-zinc-500">Estado</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-zinc-100">
+            {sorted.map((c, i) => {
+              const isTop  = i === 0 && c.receita > 0;
+              const isLast = i === sorted.length - 1 && sorted.length > 1;
+              return (
+                <tr key={c.id} className="hover:bg-zinc-50/60 transition-colors">
+                  <td className="px-4 py-3 text-sm text-zinc-400 font-medium">
+                    {isTop  && <TrendingUp  size={14} className="text-emerald-500" />}
+                    {isLast && <TrendingDown size={14} className="text-red-400" />}
+                    {!isTop && !isLast && <span>{i + 1}</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    <p className="text-sm font-semibold text-zinc-900">{c.nome}</p>
+                  </td>
+                  <td className="px-4 py-3 text-right text-sm text-zinc-700">{c.unidades}</td>
+                  <td className="px-4 py-3 text-right text-sm text-zinc-700">{c.moradores}</td>
+                  <td className="px-4 py-3 text-right text-sm font-semibold text-zinc-900">
+                    {formatMoney(c.receita)}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <span className={cn(
+                      'text-sm font-bold',
+                      c.inadimplencia > 20 ? 'text-red-600' :
+                      c.inadimplencia > 10 ? 'text-amber-600' : 'text-emerald-600',
+                    )}>
+                      {c.inadimplencia.toFixed(1)}%
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <span className={cn(
+                      'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold',
+                      c.status === 'ativo'
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-zinc-100 text-zinc-500',
+                    )}>
+                      {c.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                    </span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-3">
+        {sorted.map((c, i) => (
+          <div key={c.id} className="bg-white border border-zinc-200 rounded-2xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="font-semibold text-zinc-900 text-sm">{c.nome}</p>
+              <span className={cn(
+                'text-xs font-bold px-2 py-0.5 rounded-full',
+                c.status === 'ativo' ? 'bg-emerald-50 text-emerald-700' : 'bg-zinc-100 text-zinc-500',
+              )}>
+                {c.status === 'ativo' ? 'Ativo' : 'Inativo'}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs text-zinc-500">
+              <span>Receita: <b className="text-zinc-900">{formatMoney(c.receita)}</b></span>
+              <span>Inadimplência: <b className={c.inadimplencia > 20 ? 'text-red-600' : 'text-emerald-600'}>{c.inadimplencia.toFixed(1)}%</b></span>
+              <span>Unidades: <b className="text-zinc-900">{c.unidades}</b></span>
+              <span>Moradores: <b className="text-zinc-900">{c.moradores}</b></span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /* ── Seletor de condomínio inline ── */
 function CondoSelector() {
@@ -142,9 +256,7 @@ export default function DashboardAdminContent() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-green-50 border border-green-200 rounded-full w-fit">
-         
-        </div>
+        
       </div>
 
       {/* Seletor */}
@@ -161,6 +273,11 @@ export default function DashboardAdminContent() {
         )}
       </div>
 
+      {/* Alertas automáticos */}
+      {data?.alertas && data.alertas.length > 0 && (
+        <AdminAlerts alertas={data.alertas} />
+      )}
+
       {/* KPIs */}
       <AdminKPIs data={data?.kpis ?? null} isLoading={loading || dashLoading} />
 
@@ -170,6 +287,14 @@ export default function DashboardAdminContent() {
         ocupacaoMedia={ocupacaoMedia}
         isLoading={loading || dashLoading}
       />
+
+      {/* Tabela de performance por condomínio */}
+      {data?.condominios && data.condominios.length > 0 && (
+        <CondominiosPerformanceTable
+          condominios={data.condominios}
+          isLoading={loading || dashLoading}
+        />
+      )}
     </main>
   );
 }

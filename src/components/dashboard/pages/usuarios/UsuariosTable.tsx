@@ -272,9 +272,11 @@ export default function UsuariosTable({
                           title={
                             canDelete
                               ? 'Eliminar'
-                              : isSelf
-                                ? 'Não pode eliminar a sua própria conta'
-                                : 'Apenas admin'
+                              : isAdminRow
+                                ? 'Não é permitido eliminar Administradores'
+                                : isSelf
+                                  ? 'Não pode eliminar a sua própria conta'
+                                  : 'Apenas admin'
                           }
                         >
                           <Trash2 size={16} />

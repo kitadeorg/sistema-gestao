@@ -198,7 +198,7 @@ export default function SistemaTab() {
         />
       </Section>
 
-      {/* Notificações */}
+      {/*Notificações*/}
       <Section
         title="Notificações"
         description="Controle como e quando recebe alertas"
@@ -246,14 +246,7 @@ export default function SistemaTab() {
               <p className="text-xs text-zinc-500">Língua usada em menus e mensagens</p>
             </div>
           </div>
-          <select
-            value={prefs.idioma}
-            onChange={e => updatePref('idioma', e.target.value as 'pt' | 'en')}
-            className="px-3 py-2 rounded-xl border border-zinc-200 text-sm bg-white text-zinc-900 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
-          >
-            <option value="pt">Português</option>
-            <option value="en">English</option>
-          </select>
+         
         </div>
       </Section>
 
@@ -276,7 +269,7 @@ export default function SistemaTab() {
           </div>
           <div>
             <p className={cn('text-sm font-semibold', prefs.tema === 'escuro' ? 'text-zinc-100' : 'text-zinc-900')}>
-              NETSUL<span className='text-orange-400'>CONDO</span>
+              NETSUL<span className='text-orange-400'> CONDO</span>
             </p>
             <p className={cn('text-xs', prefs.tema === 'escuro' ? 'text-zinc-400' : 'text-zinc-500')}>
               Tema: {prefs.tema === 'claro' ? 'Claro' : prefs.tema === 'escuro' ? 'Escuro' : 'Sistema'}

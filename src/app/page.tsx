@@ -483,7 +483,6 @@ export default function HomePage() {
 
   const goToAuth = () => router.push('/autenticacao');
 
-  // Enquanto verifica a sessão, mostra um ecrã em branco (evita flash)
   if (checking) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
