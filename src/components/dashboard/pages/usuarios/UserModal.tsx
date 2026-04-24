@@ -407,7 +407,7 @@ export default function UserModal({ user, onClose, onSuccess }: UserModalProps) 
             {/* Erro de validação ou servidor */}
             {error && (
               <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 flex gap-2">
-                <span className="mt-0.5">⚠️</span>
+                <AlertTriangle size={15} className="mt-0.5 shrink-0 text-red-500" />
                 <span>{error}</span>
               </div>
             )}
@@ -416,7 +416,7 @@ export default function UserModal({ user, onClose, onSuccess }: UserModalProps) 
             {credenciaisBackup && (
               <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 p-4 space-y-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-amber-600 text-base">⚠️</span>
+                  <AlertTriangle size={15} className="text-amber-600 shrink-0" />
                   <p className="text-sm font-bold text-amber-800">
                     Email não enviado — partilha estas credenciais manualmente
                   </p>

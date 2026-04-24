@@ -96,8 +96,8 @@ const permissionMatrix: Record<Role, Partial<Record<Resource, Action[]>>> = {
     morador:      ['view'],
     pagamento:    ['view'],
     financeiro:   ['view'],
-    ocorrencia:   ['view', 'update'],
-    manutencao:   ['view', 'update'],
+    ocorrencia:   ['view', 'create', 'update'],  // pode reportar e actualizar
+    manutencao:   ['view', 'create', 'update'],  // pode reportar e actualizar
     documento:    ['view'],
     assembleia:   ['view'],
     votacao:      ['view']
@@ -113,7 +113,7 @@ const permissionMatrix: Record<Role, Partial<Record<Resource, Action[]>>> = {
     manutencao:   ['view'],
     documento:    ['view'],
     assembleia:   ['view'],
-    votacao:      ['view', 'create']
+    votacao:      ['view']                        // apenas visualiza, não cria
   }
 
 };

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   User, Lock, Eye, EyeOff, ArrowRight,
-  CheckCircle2, Loader2, ShieldCheck,
+  CheckCircle2, Loader2, ShieldCheck, Circle,
 } from 'lucide-react';
 import {
   updatePassword,
@@ -13,14 +13,14 @@ import {
   reauthenticateWithCredential,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/firebase';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
 export default function SetupPage() {
   const router = useRouter();
-  const { user, userData, loading: authLoading } = useAuthContext();
+  const { user, userData, loading: authLoading, refreshUserData } = useAuthContext();
 
   const [nome,        setNome]        = useState('');
   const [novaSenha,   setNovaSenha]   = useState('');
@@ -39,14 +39,6 @@ export default function SetupPage() {
   useEffect(() => {
     if (authLoading) return;
     if (!user) { router.replace('/autenticacao'); return; }
-
-    const check = async () => {
-      const snap = await getDoc(doc(db, 'usuarios', user.uid));
-      if (snap.exists() && !snap.data().mustChangeCredentials) {
-        router.replace('/dashboard');
-      }
-    };
-    check();
   }, [user, authLoading, router]);
 
   const validate = (): string | null => {
@@ -72,13 +64,31 @@ export default function SetupPage() {
       // 2. Actualizar displayName no Firebase Auth
       await updateProfile(user, { displayName: nome.trim() });
 
-      // 3. Actualizar no Firestore — limpar flag mustChangeCredentials
+      // 3. Actualizar no Firestore — limpar flag mustChangeCredentials e activar conta
       await updateDoc(doc(db, 'usuarios', user.uid), {
         nome:                  nome.trim(),
         mustChangeCredentials: false,
         tempUsername:          null,
         tempPassword:          null,
+        status:                'ativo',
         updatedAt:             serverTimestamp(),
+      });
+
+      // 4. Re-fetch do userData para que o contexto já tenha mustChangeCredentials=false
+      //    antes do redirect — evita o loop setup ↔ dashboard
+      await refreshUserData();
+
+      // 5. Audit log — primeiro login / activação de conta
+      const { logAudit } = await import('@/lib/firebase/auditLog');
+      void logAudit({
+        actorId:      user.uid,
+        actorNome:    nome.trim(),
+        actorRole:    userData?.role ?? 'desconhecido',
+        accao:        'conta_activada',
+        categoria:    'acesso',
+        descricao:    `${nome.trim()} activou a conta e definiu as credenciais pessoais`,
+        entidadeId:   user.uid,
+        entidadeTipo: 'usuario',
       });
 
       setDone(true);
@@ -290,7 +300,7 @@ function PasswordStrength({ password }: { password: string }) {
         <div className="flex gap-3">
           {checks.map(c => (
             <span key={c.label} className={cn('text-[10px] flex items-center gap-0.5', c.ok ? 'text-emerald-600' : 'text-zinc-400')}>
-              <span>{c.ok ? '✓' : '○'}</span> {c.label}
+              {c.ok ? <CheckCircle2 size={9} /> : <Circle size={9} />} {c.label}
             </span>
           ))}
         </div>

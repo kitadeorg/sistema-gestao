@@ -17,6 +17,7 @@ import {
   arrayRemove,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { logAudit } from './auditLog';
 
 // ─────────────────────────────────────────────
 // TIPOS
@@ -34,6 +35,7 @@ import { db } from './firebase';
  */
 export type EmailDeliveryStatus =
   | 'email_entregue'
+  | 'email_enviado'
   | 'email_bounce'
   | 'email_spam'
   | 'email_erro';
@@ -65,6 +67,10 @@ export interface CreateUserData {
   status?: UserData['status'];
   condominioId?: string;
   condominiosGeridos?: string[];
+  // Actor que executa a operação (para audit log)
+  actorId?: string;
+  actorNome?: string;
+  actorRole?: string;
 }
 
 export interface UpdateUserData {
@@ -77,6 +83,10 @@ export interface UpdateUserData {
   condominioId?: string;
   condominiosGeridos?: string[];
   emailStatus?: EmailDeliveryStatus;
+  // Actor que executa a operação (para audit log)
+  actorId?: string;
+  actorNome?: string;
+  actorRole?: string;
 }
 
 // ─────────────────────────────────────────────
@@ -253,6 +263,22 @@ export async function createUser(data: CreateUserData): Promise<string> {
   //    quando o utilizador se autenticar pela primeira vez.
   await setDoc(doc(db, 'usuarios_pre_registro', emailNorm), payload);
   console.log(`[createUser] status=${status} → usuarios_pre_registro/${emailNorm}`);
+
+  if (data.actorId) {
+    void logAudit({
+      actorId:      data.actorId,
+      actorNome:    data.actorNome ?? 'Sistema',
+      actorRole:    data.actorRole ?? 'sistema',
+      accao:        'utilizador_criado',
+      categoria:    'utilizadores',
+      descricao:    `Utilizador "${data.nome}" (${data.role}) criado`,
+      condominioId: data.condominioId,
+      entidadeId:   emailNorm,
+      entidadeTipo: 'usuario',
+      meta:         { email: emailNorm, role: data.role, status },
+    });
+  }
+
   return emailNorm;
 }
 
@@ -286,7 +312,26 @@ export async function updateUser(userId: string, data: UpdateUserData): Promise<
     updatedAt: serverTimestamp(),
   };
 
+  // Remover campos de actor do payload antes de gravar no Firestore
+  delete payload.actorId;
+  delete payload.actorNome;
+  delete payload.actorRole;
+
   await updateDoc(docRef, payload);
+
+  if (data.actorId) {
+    void logAudit({
+      actorId:      data.actorId,
+      actorNome:    data.actorNome ?? 'Sistema',
+      actorRole:    data.actorRole ?? 'sistema',
+      accao:        'utilizador_editado',
+      categoria:    'utilizadores',
+      descricao:    `Utilizador ${userId} editado`,
+      entidadeId:   userId,
+      entidadeTipo: 'usuario',
+      meta:         { campos: Object.keys(data).filter(k => !['actorId','actorNome','actorRole'].includes(k)) },
+    });
+  }
 }
 
 /**
@@ -295,7 +340,10 @@ export async function updateUser(userId: string, data: UpdateUserData): Promise<
  * ✅ Apaga também de `usuarios_pre_registro` se existir.
  * ❌ Bloqueia eliminação de utilizadores com role 'admin'.
  */
-export async function deleteUser(userId: string): Promise<void> {
+export async function deleteUser(
+  userId: string,
+  actor?: { actorId: string; actorNome: string; actorRole: string },
+): Promise<void> {
   const usuario = await getUserById(userId);
 
   if (usuario?.role === 'admin') {
@@ -311,6 +359,21 @@ export async function deleteUser(userId: string): Promise<void> {
     } catch (err) {
       console.warn('[deleteUser] Não foi possível limpar pré-registo:', err);
     }
+  }
+
+  if (actor) {
+    void logAudit({
+      actorId:      actor.actorId,
+      actorNome:    actor.actorNome,
+      actorRole:    actor.actorRole,
+      accao:        'utilizador_eliminado',
+      categoria:    'utilizadores',
+      descricao:    `Utilizador "${usuario?.nome ?? userId}" (${usuario?.role}) eliminado`,
+      condominioId: usuario?.condominioId,
+      entidadeId:   userId,
+      entidadeTipo: 'usuario',
+      meta:         { email: usuario?.email, role: usuario?.role },
+    });
   }
 }
 
@@ -349,6 +412,7 @@ export async function removerCondominioDoGestor(
 export async function toggleUserStatus(
   userId: string,
   currentStatus: UserData['status'],
+  actor?: { actorId: string; actorNome: string; actorRole: string },
 ): Promise<void> {
   if (currentStatus === 'pendente') {
     throw new Error(
@@ -359,4 +423,18 @@ export async function toggleUserStatus(
 
   const newStatus: UserData['status'] = currentStatus === 'ativo' ? 'inativo' : 'ativo';
   await updateUser(userId, { status: newStatus });
+
+  if (actor) {
+    void logAudit({
+      actorId:      actor.actorId,
+      actorNome:    actor.actorNome,
+      actorRole:    actor.actorRole,
+      accao:        newStatus === 'ativo' ? 'utilizador_activado' : 'utilizador_desactivado',
+      categoria:    'utilizadores',
+      descricao:    `Utilizador ${userId} ${newStatus === 'ativo' ? 'activado' : 'desactivado'}`,
+      entidadeId:   userId,
+      entidadeTipo: 'usuario',
+      meta:         { statusAnterior: currentStatus, statusNovo: newStatus },
+    });
+  }
 }

@@ -182,8 +182,16 @@ export default function UnidadeSidePanel({
       };
 
       isEdit
-        ? await updateUnidade(unidade.id, condominioId, payload)
-        : await createUnidade(condominioId, payload);
+        ? await updateUnidade(unidade.id, condominioId, payload, {
+            actorId:   userData?.uid ?? 'sistema',
+            actorNome: userData?.nome ?? 'Sistema',
+            actorRole: userData?.role ?? 'sistema',
+          })
+        : await createUnidade(condominioId, payload, {
+            actorId:   userData?.uid ?? 'sistema',
+            actorNome: userData?.nome ?? 'Sistema',
+            actorRole: userData?.role ?? 'sistema',
+          });
 
       toast.success(isEdit ? 'Unidade actualizada com sucesso.' : 'Unidade criada com sucesso.');
       onSuccess();
@@ -211,6 +219,10 @@ export default function UnidadeSidePanel({
           fracao:     batchConfig.fracao     ? Number(batchConfig.fracao)     : undefined,
           permilagem: batchConfig.permilagem ? Number(batchConfig.permilagem) : undefined,
           status:     batchConfig.status,
+        }, {
+          actorId:   userData?.uid ?? 'sistema',
+          actorNome: userData?.nome ?? 'Sistema',
+          actorRole: userData?.role ?? 'sistema',
         });
       }
       toast.success(`${batchPreview.length} unidades criadas com sucesso!`);
@@ -231,7 +243,11 @@ export default function UnidadeSidePanel({
     try {
       setLoading(true);
       for (const u of importedData) {
-        await createUnidade(condominioId, u);
+        await createUnidade(condominioId, u, {
+          actorId:   userData?.uid ?? 'sistema',
+          actorNome: userData?.nome ?? 'Sistema',
+          actorRole: userData?.role ?? 'sistema',
+        });
       }
       toast.success(`${importedData.length} unidades importadas com sucesso!`);
       onSuccess();
@@ -253,7 +269,11 @@ export default function UnidadeSidePanel({
         onClick: async () => {
           try {
             setLoading(true);
-            await deleteUnidade(unidade.id, condominioId);
+            await deleteUnidade(unidade.id, condominioId, {
+              actorId:   userData?.uid ?? 'sistema',
+              actorNome: userData?.nome ?? 'Sistema',
+              actorRole: userData?.role ?? 'sistema',
+            });
             toast.success('Unidade apagada com sucesso.');
             onSuccess();
             onClose();

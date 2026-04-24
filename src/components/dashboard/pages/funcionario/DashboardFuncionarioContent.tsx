@@ -71,37 +71,33 @@ export default function DashboardFuncionarioContent() {
 
   useEffect(() => {
     if (authLoading) return;
+    if (!userData?.uid) { setLoading(false); return; }
 
-    if (!userData?.uid) {
-      setLoading(false);
-      return;
-    }
+    // Garantir que temos um condoId válido antes de fazer queries
+    const cid = condoId ?? userData.condominioId;
+    if (!cid) { setLoading(false); return; }
 
     const fetchCounts = async () => {
       try {
-        const ocorrSnap = await getDocs(
-          query(
+        const [ocorrSnap, visitSnap] = await Promise.all([
+          getDocs(query(
             collection(db, 'ocorrencias'),
-            where('assignedTo', '==', userData.uid)
-          )
-        );
-
-        const visitSnap = await getDocs(
-          query(
+            where('assignedTo', '==', userData.uid),
+          )),
+          getDocs(query(
             collection(db, 'visitantes'),
-            where('condominioId', '==', condoId ?? userData.condominioId)
-          )
-        );
+            where('condominioId', '==', cid),
+          )),
+        ]);
 
         const ocorrencias = ocorrSnap.docs.map(d => d.data());
 
         setCounts({
-          delegadas: ocorrencias.filter(o => o.status === 'delegada').length,
-          emExecucao: ocorrencias.filter(o => o.status === 'em_execucao').length,
-          concluidas: ocorrencias.filter(o => o.status === 'concluida').length,
+          delegadas:        ocorrencias.filter(o => o.status === 'delegada').length,
+          emExecucao:       ocorrencias.filter(o => o.status === 'em_execucao').length,
+          concluidas:       ocorrencias.filter(o => o.status === 'concluida').length,
           visitantesDentro: visitSnap.docs.filter(d => d.data().status === 'dentro').length,
         });
-
       } catch (e) {
         console.error('Erro ao carregar dashboard funcionário:', e);
       } finally {
@@ -125,7 +121,7 @@ export default function DashboardFuncionarioContent() {
 
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">
-          Olá, {userData?.nome?.split(' ')[0]} 👋
+          Olá, {userData?.nome?.split(' ')[0]}
         </h1>
         <p className="text-sm text-zinc-500 mt-1">
           Aqui está o resumo das tuas ocorrências.

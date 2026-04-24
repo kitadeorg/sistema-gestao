@@ -1,16 +1,23 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { useDashboardContext } from '@/contexts/DashboardContext';
-import { Bell, CreditCard, Users, Wallet, Loader2 } from 'lucide-react';
+import { getQuotasMorador, type Quota } from '@/lib/firebase/quotas';
+import { Bell, CreditCard, Users, Wallet, Loader2, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import Link from 'next/link';
-
+import { cn } from '@/lib/utils';
 interface MoradorStats {
   ocorrenciasAtivas: number;
   visitantesHoje: number;
+}
+
+function formatKz(v: number) {
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M Kz`;
+  if (v >= 1_000)     return `${(v / 1_000).toFixed(1)}k Kz`;
+  return `${v.toLocaleString('pt-AO')} Kz`;
 }
 
 function KPICard({
@@ -37,53 +44,69 @@ function KPICard({
 }
 
 export default function MoradorPainelPage() {
+  const { condoId } = useParams() as { condoId: string };
   const { userData, loading: authLoading } = useAuthContext();
-
-  // ✅ FONTE ÚNICA DE VERDADE — sincronizado com Topbar/Sidebar
-  const { selectedCondo } = useDashboardContext();
 
   const [stats, setStats] = useState<MoradorStats>({
     ocorrenciasAtivas: 0,
     visitantesHoje: 0,
   });
+  const [quotaAtual, setQuotaAtual] = useState<Quota | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Morador tem condominioId fixo no perfil; selectedCondo é inicializado com esse valor
-  const condominioId   = (selectedCondo !== 'all' ? selectedCondo : null) ?? userData?.condominioId;
-  const unidadeId      = userData?.unidadeId;
-  const unidadeNumero  = userData?.unidadeNumero;
-  const bloco          = userData?.bloco;
+  // Usa o condoId da URL — fonte mais fiável
+  const condominioId  = condoId;
+  const unidadeId     = userData?.unidadeId;
+  const unidadeNumero = userData?.unidadeNumero;
+  const bloco         = userData?.bloco;
 
   /* ✅ Buscar estatísticas — só quando temos condominioId */
   useEffect(() => {
-    if (!condominioId || !userData?.uid) return;
+    // Se o auth ainda está a carregar, aguardar
+    if (authLoading) return;
+    // Se não temos condominioId, não há nada a buscar — terminar loading
+    if (!condominioId) { setLoading(false); return; }
+    // Se não temos uid ainda (pode acontecer brevemente), aguardar
+    if (!userData?.uid) { setLoading(false); return; }
 
     const fetchStats = async () => {
-      const [ocorrSnap, visitSnap] = await Promise.all([
-        getDocs(query(
-          collection(db, 'ocorrencias'),
-          where('condominioId', '==', condominioId),
-          where('criadoPor', '==', userData.uid),
-          where('status', '==', 'aberta')
-        )),
-        getDocs(query(
-          collection(db, 'visitantes'),
-          where('condominioId', '==', condominioId),
-          where('unidadeDestino', '==', unidadeNumero),
-          where('status', '==', 'dentro')
-        ))
-      ]);
+      try {
+        const hoje = new Date();
+        const [ocorrSnap, visitSnap, quotas] = await Promise.all([
+          getDocs(query(
+            collection(db, 'ocorrencias'),
+            where('condominioId', '==', condominioId),
+            where('criadoPor', '==', userData.uid),
+            where('status', '==', 'aberta')
+          )),
+          ...(unidadeNumero ? [getDocs(query(
+            collection(db, 'visitantes'),
+            where('condominioId', '==', condominioId),
+            where('unidadeDestino', '==', unidadeNumero),
+            where('status', '==', 'dentro')
+          ))] : [Promise.resolve({ size: 0 })]),
+          getQuotasMorador(condominioId, userData.uid),
+        ]);
 
-      setStats({
-        ocorrenciasAtivas: ocorrSnap.size,
-        visitantesHoje: visitSnap.size,
-      });
+        setStats({
+          ocorrenciasAtivas: ocorrSnap.size,
+          visitantesHoje: visitSnap.size,
+        });
 
-      setLoading(false);
+        // Quota do mês actual
+        const mesAtual = hoje.getMonth() + 1;
+        const anoAtual = hoje.getFullYear();
+        const qa = quotas.find(q => q.mes === mesAtual && q.ano === anoAtual) ?? null;
+        setQuotaAtual(qa);
+      } catch (e) {
+        console.error('Erro ao buscar stats morador:', e);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchStats();
-  }, [condominioId, userData?.uid, unidadeNumero]);
+  }, [condominioId, userData?.uid, unidadeNumero, authLoading]);
 
   if (authLoading || loading) {
     return (
@@ -99,7 +122,7 @@ export default function MoradorPainelPage() {
       {/* Cabeçalho */}
       <div>
         <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">
-          Bem-vindo, {userData?.nome?.split(' ')[0]} 👋
+          Bem-vindo, {userData?.nome?.split(' ')[0]}
         </h1>
         <p className="text-sm text-zinc-500 mt-1">
           Unidade:{' '}
@@ -115,11 +138,31 @@ export default function MoradorPainelPage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
         <KPICard
           title="Minhas Quotas"
-          value="Em dia"
-          icon={<CreditCard size={18} className="text-emerald-500" />}
-          sub="Próximo vencimento: Dia 05"
-          cor="text-emerald-600"
-          href={`/dashboard/condominio/${condominioId}/morador/minhas-quotas`}
+          value={
+            quotaAtual
+              ? quotaAtual.status === 'pago' ? 'Em dia'
+              : quotaAtual.status === 'atrasado' ? 'Atrasado'
+              : 'Pendente'
+              : 'Sem quota'
+          }
+          icon={
+            quotaAtual?.status === 'pago'
+              ? <CheckCircle2 size={18} className="text-emerald-500" />
+              : quotaAtual?.status === 'atrasado'
+              ? <AlertTriangle size={18} className="text-red-500" />
+              : <Clock size={18} className="text-amber-500" />
+          }
+          sub={
+            quotaAtual
+              ? `${formatKz(quotaAtual.valor)} · Vence dia ${quotaAtual.dataVencimento.toDate().getDate()}`
+              : 'Nenhuma quota gerada'
+          }
+          cor={
+            quotaAtual?.status === 'pago'     ? 'text-emerald-600' :
+            quotaAtual?.status === 'atrasado' ? 'text-red-600'     :
+            quotaAtual                        ? 'text-amber-600'   : 'text-zinc-500'
+          }
+          href={`/dashboard/condominio/${condominioId}/morador/pagamentos`}
         />
         <KPICard
           title="Ocorrências"
@@ -144,8 +187,49 @@ export default function MoradorPainelPage() {
         <div className="bg-white border border-zinc-200 rounded-3xl p-6 shadow-sm">
           <h3 className="font-bold text-zinc-900 mb-4 flex items-center gap-2">
             <Wallet size={18} className="text-orange-500" />
-            Financeiro Rápido
+            Quota do Mês
           </h3>
+          {quotaAtual ? (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-zinc-500">Valor</span>
+                <span className="text-lg font-bold text-zinc-900">{formatKz(quotaAtual.valor)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-zinc-500">Vencimento</span>
+                <span className="text-sm font-medium text-zinc-700">
+                  Dia {quotaAtual.dataVencimento.toDate().getDate()}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-zinc-500">Estado</span>
+                <span className={cn(
+                  'text-xs font-bold px-2 py-0.5 rounded-full',
+                  quotaAtual.status === 'pago'     ? 'bg-emerald-100 text-emerald-700' :
+                  quotaAtual.status === 'atrasado' ? 'bg-red-100 text-red-700'         : 'bg-amber-100 text-amber-700',
+                )}>
+                  {quotaAtual.status === 'pago' ? 'Pago' : quotaAtual.status === 'atrasado' ? 'Atrasado' : 'Pendente'}
+                </span>
+              </div>
+              <Link
+                href={`/dashboard/condominio/${condominioId}/morador/pagamentos`}
+                className="block text-center text-xs text-orange-500 hover:text-orange-600 font-semibold mt-2"
+              >
+                Ver histórico completo
+              </Link>
+              {quotaAtual && (quotaAtual.status === 'pendente' || quotaAtual.status === 'atrasado') && (
+                <Link
+                  href={`/dashboard/condominio/${condominioId}/morador/pagar/${quotaAtual.id}`}
+                  className="flex items-center justify-center gap-2 w-full py-2.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold rounded-xl transition-colors mt-1"
+                >
+                  <CreditCard size={13} />
+                  Pagar Agora
+                </Link>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-400">Nenhuma quota gerada para este mês.</p>
+          )}
         </div>
 
         <div className="bg-orange-500 rounded-3xl p-6 text-white shadow-lg">

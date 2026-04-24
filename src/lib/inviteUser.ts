@@ -4,7 +4,7 @@
  * cria o registo no Firestore e envia o email.
  */
 
-import { setDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { setDoc, doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase/firebase';
 import type { CreateUserData } from './firebase/users';
 import { getUserByEmail } from './firebase/users';
@@ -23,7 +23,6 @@ const NOUNS = [
   'Urso', 'Puma', 'Corvo', 'Lince', 'Touro',
 ];
 
-/** Gera um username no formato AdjetivoNome1234 */
 export function generateUsername(): string {
   const adj  = ADJECTIVES[Math.floor(Math.random() * ADJECTIVES.length)];
   const noun = NOUNS[Math.floor(Math.random() * NOUNS.length)];
@@ -31,35 +30,26 @@ export function generateUsername(): string {
   return `${adj}${noun}${num}`;
 }
 
-/** Gera uma senha aleatória de 10 caracteres (letras + números + símbolo) */
 export function generatePassword(): string {
   const upper  = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
   const lower  = 'abcdefghjkmnpqrstuvwxyz';
   const digits = '23456789';
   const syms   = '@#$!';
-
   const pick = (s: string) => s[Math.floor(Math.random() * s.length)];
-
   const chars = [
-    pick(upper), pick(upper),
-    pick(lower), pick(lower),
-    pick(digits), pick(digits),
-    pick(syms),
-    pick(upper + lower + digits),
-    pick(upper + lower + digits),
-    pick(upper + lower + digits),
+    pick(upper), pick(upper), pick(lower), pick(lower),
+    pick(digits), pick(digits), pick(syms),
+    pick(upper + lower + digits), pick(upper + lower + digits), pick(upper + lower + digits),
   ];
-
   for (let i = chars.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [chars[i], chars[j]] = [chars[j], chars[i]];
   }
-
   return chars.join('');
 }
 
 // ─────────────────────────────────────────────
-// CRIAR CONVITE COMPLETO
+// TIPOS
 // ─────────────────────────────────────────────
 
 export interface InviteResult {
@@ -69,15 +59,20 @@ export interface InviteResult {
   emailError?: string;
 }
 
-/**
- * Fluxo completo de convite:
- * 1. Verifica duplicado
- * 2. Gera username + senha temporários
- * 3. Cria conta no Firebase Auth via API Route (server-side)
- * 4. Cria documento no Firestore (usuarios) com mustChangeCredentials=true
- * 5. Envia email com as credenciais
- */
-export async function inviteUser(data: CreateUserData): Promise<InviteResult> {
+export interface InviteUserData extends CreateUserData {
+  /** Cargo do funcionário (role=funcionario) */
+  cargo?: string;
+  /** Unidade do morador (role=morador) */
+  unidadeId?: string;
+  /** Tipo de morador: proprietario | inquilino */
+  tipoMorador?: 'proprietario' | 'inquilino';
+}
+
+// ─────────────────────────────────────────────
+// FLUXO COMPLETO DE CONVITE
+// ─────────────────────────────────────────────
+
+export async function inviteUser(data: InviteUserData): Promise<InviteResult> {
   const emailNorm = data.email.trim().toLowerCase();
 
   // 1. Verificar duplicado
@@ -101,14 +96,12 @@ export async function inviteUser(data: CreateUserData): Promise<InviteResult> {
 
   if (!authRes.ok) {
     const body = await authRes.json().catch(() => ({}));
-    const msg = body.error ?? 'Erro ao criar conta de autenticação.';
-    console.error('[inviteUser] create-temp-user falhou:', msg);
-    throw new Error(msg);
+    throw new Error(body.error ?? 'Erro ao criar conta de autenticação.');
   }
 
   const { uid } = await authRes.json();
 
-  // 3. Criar documento no Firestore directamente em `usuarios` com o UID real
+  // 3. Payload base em `usuarios`
   const payload: Record<string, unknown> = {
     uid,
     nome:                  data.nome || username,
@@ -123,12 +116,41 @@ export async function inviteUser(data: CreateUserData): Promise<InviteResult> {
     updatedAt:             serverTimestamp(),
   };
 
-  if (data.condominioId)                payload.condominioId       = data.condominioId;
-  if (data.condominiosGeridos?.length)  payload.condominiosGeridos = data.condominiosGeridos;
+  if (data.condominioId)               payload.condominioId       = data.condominioId;
+  if (data.condominiosGeridos?.length) payload.condominiosGeridos = data.condominiosGeridos;
+  if (data.cargo)                      payload.cargo              = data.cargo;
 
   await setDoc(doc(db, 'usuarios', uid), payload);
 
-  // 4. Enviar email com as credenciais
+  // 4. Se for morador, criar/actualizar doc em `moradores`
+  if (data.role === 'morador' && data.unidadeId && data.condominioId) {
+    const unidadeSnap = await getDoc(doc(db, 'unidades', data.unidadeId));
+    const unidadeData = unidadeSnap.exists() ? unidadeSnap.data() : null;
+
+    await setDoc(doc(db, 'moradores', emailNorm), {
+      condominioId:  data.condominioId,
+      unidadeId:     data.unidadeId,
+      unidadeNumero: unidadeData?.numero ?? null,
+      bloco:         unidadeData?.bloco  ?? null,
+      nome:          data.nome,
+      telefone:      data.telefone ?? null,
+      email:         emailNorm,
+      tipo:          data.tipoMorador ?? 'proprietario',
+      status:        'ativo',
+      uid,
+      dataEntrada:   serverTimestamp(),
+      createdAt:     serverTimestamp(),
+      updatedAt:     serverTimestamp(),
+    });
+
+    // Marcar unidade como ocupada
+    await updateDoc(doc(db, 'unidades', data.unidadeId), {
+      status:    'ocupada',
+      updatedAt: serverTimestamp(),
+    });
+  }
+
+  // 5. Enviar email com as credenciais
   let emailSent = false;
   let emailError: string | undefined;
 
@@ -147,6 +169,11 @@ export async function inviteUser(data: CreateUserData): Promise<InviteResult> {
 
     if (res.ok) {
       emailSent = true;
+      await updateDoc(doc(db, 'usuarios', uid), {
+        emailStatus:          'email_enviado',
+        emailStatusUpdatedAt: serverTimestamp(),
+        updatedAt:            serverTimestamp(),
+      });
     } else {
       const body = await res.json().catch(() => ({}));
       emailError = body.error ?? 'Erro desconhecido ao enviar email.';

@@ -1,5 +1,4 @@
 import { db } from './firebase';
-import { withCondominioFilter } from './queryFilters';
 import {
   collection,
   getDocs,
@@ -10,10 +9,10 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 
-const pagamentosCollection = collection(db, 'pagamentos');
+const quotasCollection = collection(db, 'quotas');
 
 /* =====================================================
-   ✅ TIPOS
+   TIPOS
 ===================================================== */
 
 export interface ResumoFinanceiro {
@@ -25,94 +24,72 @@ export interface ResumoFinanceiro {
 }
 
 /* =====================================================
-   ✅ RESUMO FINANCEIRO
+   RESUMO FINANCEIRO — usa quotas (dados reais)
 ===================================================== */
 
 export const getResumoFinanceiro = async (
   condominioId: string | null,
-  isAdmin: boolean
+  _isAdmin: boolean,
 ): Promise<ResumoFinanceiro> => {
+  if (!condominioId) {
+    return { receitaTotal: 0, totalPago: 0, totalPendente: 0, totalAtrasado: 0, taxaInadimplencia: 0 };
+  }
 
-  const baseQuery = query(pagamentosCollection);
-
-  const safeQuery = withCondominioFilter(
-    baseQuery,
-    condominioId,
-    isAdmin
+  const snap = await getDocs(
+    query(quotasCollection, where('condominioId', '==', condominioId)),
   );
-
-  const snapshot = await getDocs(safeQuery);
 
   let receitaTotal = 0;
   let totalPago = 0;
   let totalPendente = 0;
   let totalAtrasado = 0;
 
-  snapshot.docs.forEach((docItem) => {
-    const data = docItem.data();
+  snap.docs.forEach(d => {
+    const data = d.data();
     const valor = data.valor ?? 0;
-
     receitaTotal += valor;
-
-    if (data.status === 'pago') totalPago += valor;
+    if (data.status === 'pago')     totalPago     += valor;
     if (data.status === 'pendente') totalPendente += valor;
     if (data.status === 'atrasado') totalAtrasado += valor;
   });
 
-  const taxaInadimplencia =
-    receitaTotal > 0
-      ? ((totalPendente + totalAtrasado) / receitaTotal) * 100
-      : 0;
+  const taxaInadimplencia = receitaTotal > 0
+    ? ((totalPendente + totalAtrasado) / receitaTotal) * 100
+    : 0;
 
-  return {
-    receitaTotal,
-    totalPago,
-    totalPendente,
-    totalAtrasado,
-    taxaInadimplencia,
-  };
+  return { receitaTotal, totalPago, totalPendente, totalAtrasado, taxaInadimplencia };
 };
 
 /* =====================================================
-   ✅ AUTOMATIZAR ATRASOS
+   AUTOMATIZAR ATRASOS — usa quotas
 ===================================================== */
 
 export const atualizarPagamentosAtrasados = async (
   condominioId: string | null,
-  isAdmin: boolean
-) => {
+  _isAdmin: boolean,
+): Promise<void> => {
+  if (!condominioId) return;
 
   const hoje = new Date();
 
-  const baseQuery = query(
-    pagamentosCollection,
-    where('status', '==', 'pendente')
+  const snap = await getDocs(
+    query(
+      quotasCollection,
+      where('condominioId', '==', condominioId),
+      where('status', '==', 'pendente'),
+    ),
   );
-
-  const safeQuery = withCondominioFilter(
-    baseQuery,
-    condominioId,
-    isAdmin
-  );
-
-  const snapshot = await getDocs(safeQuery);
 
   const promises: Promise<void>[] = [];
 
-  snapshot.docs.forEach((docItem) => {
-
-    const data = docItem.data();
-    const dataVencimento = data.dataVencimento?.toDate?.();
-
-    if (dataVencimento && dataVencimento < hoje) {
-
-      const pagamentoRef = doc(db, 'pagamentos', docItem.id);
-
+  snap.docs.forEach(d => {
+    const vencimento = d.data().dataVencimento?.toDate?.();
+    if (vencimento && vencimento < hoje) {
       promises.push(
-        updateDoc(pagamentoRef, {
-          status: 'atrasado',
+        updateDoc(doc(db, 'quotas', d.id), {
+          status:    'atrasado',
           updatedAt: serverTimestamp(),
-        })
+        }),
       );
     }
   });

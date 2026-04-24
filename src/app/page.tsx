@@ -10,7 +10,7 @@ import { auth } from '@/lib/firebase/firebase';
 import {
   Building2, Shield, BarChart3, Users,
   Wrench, Bell, ArrowRight, CheckCircle2,
-  ChevronDown, Menu, X,
+  ChevronDown, Menu, X, Star,
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────
@@ -378,7 +378,8 @@ function Pricing({ onCta }: { onCta: () => void }) {
             >
               {p.highlight && (
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#FF6600] text-white text-xs font-bold rounded-full mb-4">
-                  ⭐ Mais popular
+                  <Star size={11} />
+                  Mais popular
                 </div>
               )}
               <h3 className={`font-bold text-lg mb-1 ${p.highlight ? 'text-white' : 'text-zinc-900'}`}>{p.name}</h3>

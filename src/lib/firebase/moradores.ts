@@ -1,6 +1,7 @@
 // lib/firebase/moradores.ts
 import { db } from './firebase';
 import { withCondominioFilter } from './queryFilters';
+import { logAudit } from './auditLog';
 import {
   collection,
   getDocs,
@@ -26,6 +27,12 @@ export interface MoradorInput {
   telefone?: string;
   email?: string;
   tipo: 'proprietario' | 'inquilino';
+}
+
+export interface MoradorActor {
+  actorId: string;
+  actorNome: string;
+  actorRole: string;
 }
 
 /* =====================================================
@@ -58,7 +65,8 @@ export const getMoradores = async (
 
 export const createMorador = async (
   condominioId: string,
-  data: MoradorInput
+  data: MoradorInput,
+  actor?: MoradorActor,
 ) => {
   const normalizedEmail = data.email?.toLowerCase().trim() ?? null;
 
@@ -109,6 +117,21 @@ export const createMorador = async (
 
   // 4️⃣ Atualizar total de moradores
   await atualizarTotalMoradores(condominioId);
+
+  if (actor) {
+    void logAudit({
+      actorId:      actor.actorId,
+      actorNome:    actor.actorNome,
+      actorRole:    actor.actorRole,
+      accao:        'morador_criado',
+      categoria:    'moradores',
+      descricao:    `Morador "${data.nome}" criado na unidade ${unidadeNumero ?? data.unidadeId}`,
+      condominioId,
+      entidadeId:   moradorDocRef.id,
+      entidadeTipo: 'morador',
+      meta:         { nome: data.nome, email: normalizedEmail, tipo: data.tipo, unidadeId: data.unidadeId },
+    });
+  }
 };
 
 /* =====================================================
@@ -118,7 +141,8 @@ export const createMorador = async (
 export const deleteMorador = async (
   id: string,
   unidadeId: string,
-  condominioId: string
+  condominioId: string,
+  actor?: MoradorActor,
 ) => {
   // 1️⃣ Eliminar morador
   await deleteDoc(doc(db, 'moradores', id));
@@ -146,6 +170,20 @@ export const deleteMorador = async (
 
   // 3️⃣ Atualizar total
   await atualizarTotalMoradores(condominioId);
+
+  if (actor) {
+    void logAudit({
+      actorId:      actor.actorId,
+      actorNome:    actor.actorNome,
+      actorRole:    actor.actorRole,
+      accao:        'morador_eliminado',
+      categoria:    'moradores',
+      descricao:    `Morador ${id} eliminado`,
+      condominioId,
+      entidadeId:   id,
+      entidadeTipo: 'morador',
+    });
+  }
 };
 
 /* =====================================================

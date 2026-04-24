@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, UserCheck, Loader2, AlertCircle, Mail, CheckCircle2 } from 'lucide-react';
+import { X, ShieldCheck, Loader2, AlertCircle, Mail, CheckCircle2 } from 'lucide-react';
 import { inviteUser } from '@/lib/inviteUser';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
@@ -18,20 +18,13 @@ interface FormData {
   nome: string;
   email: string;
   telefone: string;
-  cargo: string;
 }
 
 interface FormErrors {
   nome?: string;
   email?: string;
   telefone?: string;
-  cargo?: string;
 }
-
-const CARGOS = [
-  'Porteiro', 'Segurança', 'Zelador', 'Auxiliar de Limpeza',
-  'Técnico de Manutenção', 'Administrativo', 'Gestor de Condomínio',
-];
 
 function validate(form: FormData): FormErrors {
   const e: FormErrors = {};
@@ -39,7 +32,6 @@ function validate(form: FormData): FormErrors {
   if (!form.email.trim()) e.email = 'Email é obrigatório';
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Email inválido';
   if (!form.telefone.trim()) e.telefone = 'Telefone é obrigatório';
-  if (!form.cargo.trim()) e.cargo = 'Cargo é obrigatório';
   return e;
 }
 
@@ -50,8 +42,7 @@ function Field({ label, value, onChange, error, type = 'text', placeholder }: {
   return (
     <div className="space-y-1">
       <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">{label}</label>
-      <input
-        type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+      <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
         className={`w-full px-3 py-2.5 text-sm rounded-xl border transition-colors focus:outline-none focus:ring-2 focus:ring-orange-300 ${error ? 'border-red-300 bg-red-50' : 'border-zinc-200 bg-white'}`}
       />
       {error && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={11} />{error}</p>}
@@ -59,8 +50,8 @@ function Field({ label, value, onChange, error, type = 'text', placeholder }: {
   );
 }
 
-export default function FuncionarioSidePanel({ condoId, onClose, onSuccess }: Props) {
-  const [form, setForm]     = useState<FormData>({ nome: '', email: '', telefone: '', cargo: '' });
+export default function SindicoSidePanel({ condoId, onClose, onSuccess }: Props) {
+  const [form, setForm]     = useState<FormData>({ nome: '', email: '', telefone: '' });
   const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -84,15 +75,13 @@ export default function FuncionarioSidePanel({ condoId, onClose, onSuccess }: Pr
         nome:        form.nome.trim(),
         email:       form.email.trim().toLowerCase(),
         telefone:    form.telefone.trim(),
-        role:        'funcionario',
+        role:        'sindico',
         status:      'ativo',
         condominioId: condoId,
-        cargo:       form.cargo.trim(),
       });
 
-      // Guardar documentos no Firestore se existirem
+      // Guardar documentos
       if (docs.length > 0) {
-        // O UID está no doc criado — buscamos pelo email
         const { getUserByEmail } = await import('@/lib/firebase/users');
         const found = await getUserByEmail(form.email.trim().toLowerCase());
         if (found?.data?.uid) {
@@ -105,15 +94,15 @@ export default function FuncionarioSidePanel({ condoId, onClose, onSuccess }: Pr
 
       if (result.emailSent) {
         setDone({ username: result.username, password: result.password });
-        toast.success('Funcionário convidado com sucesso!');
+        toast.success('Síndico convidado com sucesso!');
       } else {
-        toast.warning(`Funcionário criado, mas o email falhou: ${result.emailError}`);
+        toast.warning(`Síndico criado, mas o email falhou: ${result.emailError}`);
         setDone({ username: result.username, password: result.password });
       }
 
       onSuccess();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Erro ao criar funcionário.';
+      const msg = err instanceof Error ? err.message : 'Erro ao criar síndico.';
       setApiError(msg);
       toast.error(msg);
     } finally {
@@ -129,9 +118,9 @@ export default function FuncionarioSidePanel({ condoId, onClose, onSuccess }: Pr
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-50 rounded-xl"><UserCheck size={18} className="text-orange-500" /></div>
+            <div className="p-2 bg-orange-50 rounded-xl"><ShieldCheck size={18} className="text-orange-500" /></div>
             <div>
-              <h2 className="text-base font-semibold text-zinc-900">Adicionar Funcionário</h2>
+              <h2 className="text-base font-semibold text-zinc-900">Registar Síndico</h2>
               <p className="text-xs text-zinc-500">Convite enviado por email automaticamente</p>
             </div>
           </div>
@@ -142,13 +131,12 @@ export default function FuncionarioSidePanel({ condoId, onClose, onSuccess }: Pr
         <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
 
           {done ? (
-            /* ── Estado de sucesso ── */
             <div className="space-y-4">
               <div className="flex flex-col items-center gap-3 py-6 text-center">
                 <div className="w-14 h-14 bg-emerald-100 rounded-2xl flex items-center justify-center">
                   <CheckCircle2 size={28} className="text-emerald-600" />
                 </div>
-                <h3 className="font-bold text-zinc-900">Funcionário convidado!</h3>
+                <h3 className="font-bold text-zinc-900">Síndico convidado!</h3>
                 <p className="text-sm text-zinc-500">O email de convite foi enviado com as credenciais temporárias.</p>
               </div>
               <div className="bg-zinc-50 border border-zinc-200 rounded-2xl p-4 space-y-3">
@@ -167,7 +155,6 @@ export default function FuncionarioSidePanel({ condoId, onClose, onSuccess }: Pr
               </button>
             </div>
           ) : (
-            /* ── Formulário ── */
             <>
               {apiError && (
                 <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-2xl">
@@ -176,49 +163,39 @@ export default function FuncionarioSidePanel({ condoId, onClose, onSuccess }: Pr
                 </div>
               )}
 
-              <Field label="Nome Completo *" value={form.nome} onChange={set('nome')} error={errors.nome} placeholder="Ex: João Silva" />
-              <Field label="Email *" value={form.email} onChange={set('email')} error={errors.email} type="email" placeholder="joao@email.com" />
+              <Field label="Nome Completo *" value={form.nome} onChange={set('nome')} error={errors.nome} placeholder="Ex: Carlos Mendes" />
+              <Field label="Email *" value={form.email} onChange={set('email')} error={errors.email} type="email" placeholder="carlos@email.com" />
               <Field label="Telefone *" value={form.telefone} onChange={set('telefone')} error={errors.telefone} type="tel" placeholder="+244 9XX XXX XXX" />
-
-              {/* Cargo */}
-              <div className="space-y-1">
-                <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Cargo *</label>
-                <select
-                  value={CARGOS.includes(form.cargo) ? form.cargo : '__outro__'}
-                  onChange={e => { if (e.target.value !== '__outro__') set('cargo')(e.target.value); else set('cargo')(''); }}
-                  className={`w-full px-3 py-2.5 text-sm rounded-xl border bg-white focus:outline-none focus:ring-2 focus:ring-orange-300 ${errors.cargo ? 'border-red-300' : 'border-zinc-200'}`}
-                >
-                  <option value="">Selecionar cargo...</option>
-                  {CARGOS.map(c => <option key={c} value={c}>{c}</option>)}
-                  <option value="__outro__">Outro (escrever)</option>
-                </select>
-                {!CARGOS.includes(form.cargo) && (
-                  <input type="text" value={form.cargo} onChange={e => set('cargo')(e.target.value)} placeholder="Escreve o cargo..."
-                    className={`mt-2 w-full px-3 py-2.5 text-sm rounded-xl border focus:outline-none focus:ring-2 focus:ring-orange-300 ${errors.cargo ? 'border-red-300 bg-red-50' : 'border-zinc-200'}`}
-                  />
-                )}
-                {errors.cargo && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={11} />{errors.cargo}</p>}
-              </div>
 
               {/* Documentos */}
               <div className="space-y-2">
                 <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Documentos (opcional)</label>
-                <p className="text-xs text-zinc-400">BI, contrato, outros documentos relevantes</p>
+                <p className="text-xs text-zinc-400">BI, contrato de mandato, outros documentos</p>
                 <DocumentUploader
-                  folder={`funcionarios/${condoId}`}
+                  folder={`sindicos/${condoId}`}
                   onUploaded={setDocs}
                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                 />
               </div>
 
               {/* Info */}
+              <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <ShieldCheck size={14} className="text-amber-600" />
+                  <p className="text-xs font-semibold text-amber-700">Papel do Síndico</p>
+                </div>
+                <p className="text-xs text-amber-600 leading-relaxed">
+                  O síndico terá acesso à gestão do condomínio: ocorrências, manutenção, visitantes, equipa e documentos. Não tem acesso a dados financeiros globais.
+                </p>
+              </div>
+
               <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
                 <div className="flex items-center gap-2 mb-2">
                   <Mail size={14} className="text-blue-600" />
                   <p className="text-xs font-semibold text-blue-700">Convite por email</p>
                 </div>
                 <p className="text-xs text-blue-600 leading-relaxed">
-                  O funcionário receberá um email com credenciais temporárias. No primeiro login será pedido que defina o seu nome e senha pessoal.
+                  O síndico receberá um email com credenciais temporárias. No primeiro login será pedido que defina o seu nome e senha pessoal.
                 </p>
               </div>
             </>
@@ -233,7 +210,7 @@ export default function FuncionarioSidePanel({ condoId, onClose, onSuccess }: Pr
             </button>
             <button onClick={handleSubmit} disabled={saving}
               className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-sm font-semibold rounded-xl transition-colors">
-              {saving ? <><Loader2 size={16} className="animate-spin" />A enviar...</> : <><UserCheck size={16} />Convidar</>}
+              {saving ? <><Loader2 size={16} className="animate-spin" />A enviar...</> : <><ShieldCheck size={16} />Convidar Síndico</>}
             </button>
           </div>
         )}

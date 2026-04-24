@@ -28,9 +28,9 @@ interface Ocorrencia {
 
 function PrioridadeBadge({ prioridade }: { prioridade: Ocorrencia['prioridade'] }) {
   const cfg = {
-    alta:  { cls: 'bg-red-100 text-red-700 border border-red-200',    label: '🔴 Alta'   },
-    media: { cls: 'bg-amber-100 text-amber-700 border border-amber-200', label: '🟡 Média' },
-    baixa: { cls: 'bg-zinc-100 text-zinc-600 border border-zinc-200',  label: '🟢 Baixa' },
+    alta:  { cls: 'bg-red-100 text-red-700 border border-red-200',    label: 'Alta'   },
+    media: { cls: 'bg-amber-100 text-amber-700 border border-amber-200', label: 'Média' },
+    baixa: { cls: 'bg-zinc-100 text-zinc-600 border border-zinc-200',  label: 'Baixa' },
   };
   const { cls, label } = cfg[prioridade] ?? cfg.baixa;
   return (
@@ -129,8 +129,9 @@ function OcorrenciaCard({
         {/* Instruções do síndico */}
         {o.instrucoes && (
           <div className="bg-blue-50 border border-blue-100 rounded-xl p-3">
-            <p className="text-xs font-semibold text-blue-700 mb-1">
-              📋 Instruções do síndico
+            <p className="text-xs font-semibold text-blue-700 mb-1 flex items-center gap-1.5">
+              <Bell size={11} className="text-blue-600" />
+              Instruções do síndico
             </p>
             <p className="text-xs text-blue-800">{o.instrucoes}</p>
           </div>

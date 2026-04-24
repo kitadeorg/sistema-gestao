@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { doc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
+import { logAudit } from '@/lib/firebase/auditLog';
 
 // ─────────────────────────────────────────────
 // TIPOS
@@ -13,6 +14,7 @@ import { db } from '@/lib/firebase/firebase';
  */
 export type EmailDeliveryStatus =
   | 'email_entregue'      // Confirmação positiva de entrega
+  | 'email_enviado'       // Email enviado (sem confirmação de entrega ainda)
   | 'email_bounce'        // Hard bounce: conta/domínio inexistente
   | 'email_spam'          // Marcado como spam pelo destinatário
   | 'email_erro';         // Falha genérica de entrega
@@ -117,7 +119,7 @@ async function updateEmailStatus(
     return { updated: true, collection: 'usuarios' };
   }
 
-  // 2. Tentar em `usuarios_pre_registro`
+  // 2. Tentar em `usuari`
   const qPre = query(
     collection(db, 'usuarios_pre_registro'),
     where('email', '==', emailNorm),
@@ -137,9 +139,7 @@ async function updateEmailStatus(
   return { updated: false };
 }
 
-// ─────────────────────────────────────────────
-// HANDLER PRINCIPAL
-// ─────────────────────────────────────────────
+// ───────────────────────────────
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
@@ -158,7 +158,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     if (!normalized) {
       console.warn('[webhook/email-bounce] Payload não reconhecido:', body);
-      // Retorna 200 para não forçar reenvio do provedor
       return NextResponse.json({ received: true, processed: false }, { status: 200 });
     }
 
@@ -170,6 +169,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       console.log(
         `[webhook/email-bounce] ${email} → ${deliveryStatus} (${providerEventType}) em ${result.collection}`,
       );
+
+      // Só logar bounces e spam — eventos negativos relevantes para auditoria
+      if (deliveryStatus === 'email_bounce' || deliveryStatus === 'email_spam' || deliveryStatus === 'email_erro') {
+        void logAudit({
+          actorId:      'sistema',
+          actorNome:    'Sistema (Webhook)',
+          actorRole:    'sistema',
+          accao:        'convite_enviado',
+          categoria:    'utilizadores',
+          descricao:    `Email bounce/erro para "${email}": ${deliveryStatus} (${providerEventType})`,
+          entidadeTipo: 'usuario',
+          meta:         { email, deliveryStatus, providerEventType, collection: result.collection },
+        });
+      }
     } else {
       console.warn(
         `[webhook/email-bounce] Utilizador não encontrado para o e-mail: ${email}`,

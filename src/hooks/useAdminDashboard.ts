@@ -83,15 +83,15 @@ export function useAdminDashboard({
           return;
         }
 
-        // ── 2. Pagamentos (dados financeiros reais) ─────────────────
+        // ── 2. Pagamentos + Quotas (dados financeiros reais) ────────
         const pagamentosRef = collection(db, 'pagamentos');
+        const quotasRef     = collection(db, 'quotas');
         const chunks = chunk(condoIds, 30);
 
-        const pagSnaps = await Promise.all(
-          chunks.map(ch =>
-            getDocs(query(pagamentosRef, where('condominioId', 'in', ch)))
-          )
-        );
+        const [pagSnaps, quotaSnaps] = await Promise.all([
+          Promise.all(chunks.map(ch => getDocs(query(pagamentosRef, where('condominioId', 'in', ch))))),
+          Promise.all(chunks.map(ch => getDocs(query(quotasRef,     where('condominioId', 'in', ch))))),
+        ]);
 
         interface PagamentoDoc {
           id: string;
@@ -105,6 +105,28 @@ export function useAdminDashboard({
         const pagamentos: PagamentoDoc[] = pagSnaps.flatMap(s =>
           s.docs.map(d => ({ id: d.id, ...(d.data() as Omit<PagamentoDoc, 'id'>) }))
         );
+
+        // Normalizar quotas para o mesmo formato de PagamentoDoc
+        // quota.status: 'pago' | 'pendente' | 'atrasado' | 'isento'
+        const quotasComoDoc: PagamentoDoc[] = quotaSnaps.flatMap(s =>
+          s.docs.map(d => {
+            const q = d.data();
+            return {
+              id:             d.id,
+              valor:          q.valor,
+              condominioId:   q.condominioId,
+              status:         q.status === 'isento' ? 'pendente' : q.status, // isento não conta como receita
+              dataPagamento:  q.dataPagamento,
+              dataVencimento: q.dataVencimento,
+            } as PagamentoDoc;
+          })
+        );
+
+        // Merge: usar quotas como fonte primária; pagamentos como complemento
+        // (evitar dupla contagem se ambos existirem para o mesmo condomínio)
+        const condosComQuotas = new Set(quotasComoDoc.map(q => q.condominioId).filter(Boolean));
+        const pagamentosFiltrados = pagamentos.filter(p => !condosComQuotas.has(p.condominioId));
+        const todosRegistos = [...quotasComoDoc, ...pagamentosFiltrados];
 
         // ── 3. Moradores ────────────────────────────────────────────
         const moradoresRef = collection(db, 'moradores');
@@ -159,7 +181,7 @@ export function useAdminDashboard({
         });
 
         // Pagamentos
-        pagamentos.forEach(p => {
+        todosRegistos.forEach(p => {
           const valor = p.valor ?? 0;
           const cid   = p.condominioId;
           if (!cid) return;
@@ -222,7 +244,7 @@ export function useAdminDashboard({
           const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
           const fim = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59);
 
-          const receitaMes = pagamentos
+          const receitaMes = todosRegistos
             .filter(p => {
               const raw = p.dataPagamento;
               const dataPag = raw && typeof raw === 'object' && 'toDate' in raw && raw.toDate

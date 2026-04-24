@@ -6,6 +6,13 @@ import {
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
+import { logAudit } from './auditLog';
+
+export interface OcorrenciaActor {
+  actorId: string;
+  actorNome: string;
+  actorRole: string;
+}
 
 /* ========================================================= */
 /* ✅ Criar ocorrência (Morador) */
@@ -13,30 +20,41 @@ import { db } from './firebase';
 
 export async function criarOcorrencia(data: {
   condominioId: string;
-
   unidadeId: string;
   unidadeNumero: string;
   bloco: string;
-
   criadoPor: string;
   criadoPorNome: string;
-
+  titulo?: string;
   descricao: string;
   categoria: string;
 }) {
-  return await addDoc(collection(db, 'ocorrencias'), {
+  const ref = await addDoc(collection(db, 'ocorrencias'), {
     ...data,
-
+    titulo: data.titulo ?? data.descricao.slice(0, 60),
     prioridade: 'media',
     status: 'aberta',
-
     assignedTo: null,
     delegadoPor: null,
     instrucoes: null,
-
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  void logAudit({
+    actorId:      data.criadoPor,
+    actorNome:    data.criadoPorNome,
+    actorRole:    'morador',
+    accao:        'ocorrencia_criada',
+    categoria:    'ocorrencias',
+    descricao:    `Ocorrência "${data.titulo ?? data.descricao.slice(0, 60)}" criada`,
+    condominioId: data.condominioId,
+    entidadeId:   ref.id,
+    entidadeTipo: 'ocorrencia',
+    meta:         { categoria: data.categoria, unidadeNumero: data.unidadeNumero },
+  });
+
+  return ref;
 }
 
 /* ========================================================= */
@@ -48,11 +66,11 @@ export async function delegarOcorrencia(
   funcionarioId: string,
   sindicoId: string,
   prioridade: 'baixa' | 'media' | 'alta',
-  instrucoes?: string
+  instrucoes?: string,
+  actor?: OcorrenciaActor,
 ) {
   const ref = doc(db, 'ocorrencias', ocorrenciaId);
-
-  return await updateDoc(ref, {
+  await updateDoc(ref, {
     assignedTo: funcionarioId,
     delegadoPor: sindicoId,
     prioridade,
@@ -60,43 +78,72 @@ export async function delegarOcorrencia(
     status: 'delegada',
     updatedAt: serverTimestamp(),
   });
+
+  if (actor) {
+    void logAudit({
+      actorId:      actor.actorId,
+      actorNome:    actor.actorNome,
+      actorRole:    actor.actorRole,
+      accao:        'ocorrencia_delegada',
+      categoria:    'ocorrencias',
+      descricao:    `Ocorrência ${ocorrenciaId} delegada ao funcionário ${funcionarioId}`,
+      entidadeId:   ocorrenciaId,
+      entidadeTipo: 'ocorrencia',
+      meta:         { funcionarioId, prioridade },
+    });
+  }
 }
 
-/* ========================================================= */
-/* ✅ Funcionário inicia execução */
-/* ========================================================= */
-
-export async function iniciarExecucao(ocorrenciaId: string) {
+export async function iniciarExecucao(ocorrenciaId: string, actor?: OcorrenciaActor) {
   const ref = doc(db, 'ocorrencias', ocorrenciaId);
+  await updateDoc(ref, { status: 'em_execucao', updatedAt: serverTimestamp() });
 
-  return await updateDoc(ref, {
-    status: 'em_execucao',
-    updatedAt: serverTimestamp(),
-  });
+  if (actor) {
+    void logAudit({
+      actorId:      actor.actorId,
+      actorNome:    actor.actorNome,
+      actorRole:    actor.actorRole,
+      accao:        'ocorrencia_iniciada',
+      categoria:    'ocorrencias',
+      descricao:    `Ocorrência ${ocorrenciaId} iniciada`,
+      entidadeId:   ocorrenciaId,
+      entidadeTipo: 'ocorrencia',
+    });
+  }
 }
 
-/* ========================================================= */
-/* ✅ Funcionário conclui */
-/* ========================================================= */
-
-export async function concluirOcorrencia(ocorrenciaId: string) {
+export async function concluirOcorrencia(ocorrenciaId: string, actor?: OcorrenciaActor) {
   const ref = doc(db, 'ocorrencias', ocorrenciaId);
+  await updateDoc(ref, { status: 'concluida', updatedAt: serverTimestamp() });
 
-  return await updateDoc(ref, {
-    status: 'concluida',
-    updatedAt: serverTimestamp(),
-  });
+  if (actor) {
+    void logAudit({
+      actorId:      actor.actorId,
+      actorNome:    actor.actorNome,
+      actorRole:    actor.actorRole,
+      accao:        'ocorrencia_concluida',
+      categoria:    'ocorrencias',
+      descricao:    `Ocorrência ${ocorrenciaId} concluída`,
+      entidadeId:   ocorrenciaId,
+      entidadeTipo: 'ocorrencia',
+    });
+  }
 }
 
-/* ========================================================= */
-/* ✅ Síndico encerra */
-/* ========================================================= */
-
-export async function encerrarOcorrencia(ocorrenciaId: string) {
+export async function encerrarOcorrencia(ocorrenciaId: string, actor?: OcorrenciaActor) {
   const ref = doc(db, 'ocorrencias', ocorrenciaId);
+  await updateDoc(ref, { status: 'encerrada', updatedAt: serverTimestamp() });
 
-  return await updateDoc(ref, {
-    status: 'encerrada',
-    updatedAt: serverTimestamp(),
-  });
+  if (actor) {
+    void logAudit({
+      actorId:      actor.actorId,
+      actorNome:    actor.actorNome,
+      actorRole:    actor.actorRole,
+      accao:        'ocorrencia_encerrada',
+      categoria:    'ocorrencias',
+      descricao:    `Ocorrência ${ocorrenciaId} encerrada`,
+      entidadeId:   ocorrenciaId,
+      entidadeTipo: 'ocorrencia',
+    });
+  }
 }

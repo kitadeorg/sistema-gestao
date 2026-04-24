@@ -45,18 +45,17 @@ export default function ManutencaoFuncionarioPage() {
   const [filtro,  setFiltro]  = useState<'todos' | 'pendente' | 'em_execucao' | 'concluida'>('todos');
 
   useEffect(() => {
-    if (!condoId) return;
+    if (!condoId) { setLoading(false); return; }
 
     const fetchItems = async () => {
       try {
-        const q = query(
+        const snap = await getDocs(query(
           collection(db, 'manutencao'),
-          where('condominioId', '==', condoId)
-        );
-        const snap = await getDocs(q);
+          where('condominioId', '==', condoId),
+        ));
         setItems(snap.docs.map(d => ({ id: d.id, ...d.data() } as Manutencao)));
       } catch (e) {
-        console.error(e);
+        console.error('Erro ao carregar manutenção:', e);
       } finally {
         setLoading(false);
       }
@@ -159,7 +158,10 @@ export default function ManutencaoFuncionarioPage() {
                 <div className="flex items-center gap-2 mt-2">
                   <PrioridadeBadge prioridade={m.prioridade} />
                   {m.local && (
-                    <span className="text-xs text-zinc-400">📍 {m.local}</span>
+                    <span className="text-xs text-zinc-400 flex items-center gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                      {m.local}
+                    </span>
                   )}
                   {m.prazo && (
                     <span className="text-xs text-zinc-400">· Prazo: {m.prazo}</span>

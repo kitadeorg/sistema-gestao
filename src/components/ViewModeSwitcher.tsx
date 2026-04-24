@@ -20,7 +20,7 @@ export default function ViewModeSwitcher() {
   return (
     <div className="flex items-center gap-2 bg-zinc-100 p-1 rounded-xl w-fit">
 
-      {/* 🌍 GLOBAL */}
+      {/* Vista Global */}
       <button
         onClick={() => setCurrentCondominio(null)}
         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition ${
@@ -33,7 +33,7 @@ export default function ViewModeSwitcher() {
         Global
       </button>
 
-      {/* 🏢 INDIVIDUAL */}
+      {/* Vista Individual */}
       <button
         onClick={() =>
           setCurrentCondominio(condominiosAcessiveis[0] ?? null)

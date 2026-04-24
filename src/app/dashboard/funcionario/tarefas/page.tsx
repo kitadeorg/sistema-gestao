@@ -22,14 +22,9 @@ import {
 
 interface Ocorrencia {
   id: string;
+  titulo?: string;
   descricao: string;
-  status:
-    | 'aberta'
-    | 'em_analise'
-    | 'delegada'
-    | 'em_execucao'
-    | 'concluida'
-    | 'encerrada';
+  status: 'aberta' | 'em_analise' | 'delegada' | 'em_execucao' | 'concluida' | 'encerrada';
   prioridade: 'baixa' | 'media' | 'alta';
 }
 
@@ -68,39 +63,38 @@ export default function TarefasPage() {
   const [tarefas, setTarefas] = useState<Ocorrencia[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchTarefas = async () => {
     if (!userData?.uid) return;
+    try {
+      const snap = await getDocs(query(
+        collection(db, 'ocorrencias'),
+        where('assignedTo', '==', userData.uid),
+        where('status', 'in', ['delegada', 'em_execucao', 'concluida']),
+      ));
+      setTarefas(snap.docs.map(d => ({ id: d.id, ...d.data() } as Ocorrencia)));
+    } catch (e) {
+      console.error('Erro ao buscar ocorrências:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const fetch = async () => {
-      try {
-        const q = query(
-          collection(db, 'ocorrencias'),
-          where('assignedTo', '==', userData.uid),
-          where('status', 'in', ['delegada', 'em_execucao', 'concluida'])
-        );
+  useEffect(() => { fetchTarefas(); }, [userData?.uid]);
 
-        const snap = await getDocs(q);
+  const handleIniciar = async (id: string) => {
+    await iniciarExecucao(id);
+    setTarefas(prev => prev.map(t => t.id === id ? { ...t, status: 'em_execucao' } : t));
+  };
 
-        setTarefas(
-          snap.docs.map(d => ({
-            id: d.id,
-            ...d.data(),
-          } as Ocorrencia))
-        );
-      } catch (e) {
-        console.error('Erro ao buscar ocorrências:', e);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetch();
-  }, [userData?.uid]);
+  const handleConcluir = async (id: string) => {
+    await concluirOcorrencia(id);
+    setTarefas(prev => prev.map(t => t.id === id ? { ...t, status: 'concluida' } : t));
+  };
 
   if (loading) {
     return (
-      <div className="p-8 text-zinc-500 text-sm text-center">
-        A carregar ocorrências...
+      <div className="flex items-center justify-center p-8">
+        <ClipboardList className="w-8 h-8 animate-pulse text-orange-300" />
       </div>
     );
   }
@@ -138,13 +132,15 @@ export default function TarefasPage() {
                 <StatusIcon status={t.status} />
                 <div>
                   <p className="text-sm font-semibold text-zinc-900">
-                    {t.descricao}
+                    {t.titulo ?? t.descricao}
                   </p>
-
+                  {t.titulo && t.descricao && (
+                    <p className="text-xs text-zinc-500 mt-0.5 line-clamp-1">{t.descricao}</p>
+                  )}
                   <div className="flex items-center gap-2 mt-2">
                     <PrioridadeBadge prioridade={t.prioridade} />
                     <span className="text-xs text-zinc-400">
-                      Status: {t.status}
+                      {t.status === 'delegada' ? 'Aguarda início' : t.status === 'em_execucao' ? 'Em execução' : 'Concluída'}
                     </span>
                   </div>
                 </div>
@@ -153,17 +149,16 @@ export default function TarefasPage() {
               <div className="flex gap-2 shrink-0">
                 {t.status === 'delegada' && (
                   <button
-                    onClick={() => iniciarExecucao(t.id)}
-                    className="px-3 py-1 text-xs bg-blue-500 text-white rounded-lg"
+                    onClick={() => handleIniciar(t.id)}
+                    className="px-3 py-1.5 text-xs font-semibold bg-blue-500 hover:bg-blue-600 text-white rounded-xl transition-colors"
                   >
                     Iniciar
                   </button>
                 )}
-
                 {t.status === 'em_execucao' && (
                   <button
-                    onClick={() => concluirOcorrencia(t.id)}
-                    className="px-3 py-1 text-xs bg-emerald-500 text-white rounded-lg"
+                    onClick={() => handleConcluir(t.id)}
+                    className="px-3 py-1.5 text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl transition-colors"
                   >
                     Concluir
                   </button>

@@ -297,7 +297,7 @@ function GlobalHeader({
           <p className="text-sm text-zinc-500 capitalize">{dataHoje}</p>
           <h1 className="text-2xl sm:text-3xl font-bold text-zinc-900 mt-0.5">
             {saudacao},{' '}
-            <span className="text-orange-500">{nomeGestor.split(' ')[0]}</span> 👋
+            <span className="text-orange-500">{nomeGestor.split(' ')[0]}</span>
           </h1>
           <p className="text-zinc-500 mt-1 text-sm">
             Portfólio com{' '}

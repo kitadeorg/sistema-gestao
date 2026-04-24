@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
+import { logAudit } from '@/lib/firebase/auditLog';
 
 // ─────────────────────────────────────────────
 // TRANSPORTER — Gmail com App Password
@@ -15,7 +16,7 @@ const transporter = nodemailer.createTransport({
 
 export async function POST(request: Request) {
   try {
-    const { email, nome, username, password, role } = await request.json();
+    const { email, nome, username, password, role, actorId, actorNome, actorRole, condominioId, targetUserId } = await request.json();
 
     if (!email || !username || !password) {
       return NextResponse.json({ error: 'Dados incompletos.' }, { status: 400 });
@@ -56,11 +57,27 @@ export async function POST(request: Request) {
       }),
     });
 
-    console.log(`[send-invite] ✅ Email enviado para ${email}`);
+    console.log(`[send-invite] Email enviado para ${email}`);
+
+    if (actorId) {
+      void logAudit({
+        actorId,
+        actorNome:    actorNome ?? 'Sistema',
+        actorRole:    actorRole ?? 'sistema',
+        accao:        'convite_enviado',
+        categoria:    'utilizadores',
+        descricao:    `Convite enviado para "${nome ?? email}" (${role})`,
+        condominioId: condominioId ?? undefined,
+        entidadeId:   targetUserId ?? email,
+        entidadeTipo: 'usuario',
+        meta:         { email, role },
+      });
+    }
+
     return NextResponse.json({ success: true });
 
   } catch (err: any) {
-    console.error('[send-invite] ❌ Nodemailer error:', {
+    console.error('[send-invite]  Nodemailer error:', {
       message: err.message,
       code:    err.code,
     });
@@ -173,7 +190,7 @@ function buildEmailHtml(p: {
                 Se não esperava este email, pode ignorá-lo com segurança.
               </p>
               <p style="margin:6px 0 0;font-size:12px;color:#d4d4d8;">
-                © ${new Date().getFullYear()} CONDO. — Sistema de Gestão de Condomínios
+                © ${new Date().getFullYear()} NETSUL CONDO. — Sistema de Gestão de Condomínios
               </p>
             </td>
           </tr>

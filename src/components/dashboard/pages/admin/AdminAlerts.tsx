@@ -43,7 +43,7 @@ export default function AdminAlerts({ alertas }: AdminAlertsProps) {
           borderColor: 'border-red-200',
           textColor: 'text-red-800',
           badgeColor: 'bg-red-100 text-red-800',
-          label: '🔴 CRÍTICO',
+          label: 'CRÍTICO',
         };
       case 'aviso':
         return {
@@ -52,7 +52,7 @@ export default function AdminAlerts({ alertas }: AdminAlertsProps) {
           borderColor: 'border-yellow-200',
           textColor: 'text-yellow-800',
           badgeColor: 'bg-yellow-100 text-yellow-800',
-          label: '🟠 AVISO',
+          label: 'AVISO',
         };
       default:
         return {
@@ -61,7 +61,7 @@ export default function AdminAlerts({ alertas }: AdminAlertsProps) {
           borderColor: 'border-blue-200',
           textColor: 'text-blue-800',
           badgeColor: 'bg-blue-100 text-blue-800',
-          label: 'ℹ️ INFO',
+          label: 'INFO',
         };
     }
   };

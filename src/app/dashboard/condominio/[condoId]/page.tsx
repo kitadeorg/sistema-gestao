@@ -1,21 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { deleteUnidade, deleteMultipleUnidades } from '@/lib/firebase/unidades';
 import UnidadeSidePanel from '@/app/dashboard/condominio/[condoId]/unidades/[unitId]/UnidadeSidePanel';
 import UnidadesGrid from '@/components/dashboard/pages/unidades/UnidadesGrid';
 import { useUnidades } from '@/hooks/useUnidades';
-import { Plus, Trash2, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Loader2 } from 'lucide-react';
 import { can } from '@/lib/permissions/permissionMatrix';
 import { toast } from 'sonner';
 
 export default function UnidadesPage() {
-  const { userData, currentCondominioId } = useAuthContext();
+  const { condoId } = useParams() as { condoId: string };
+  const { userData } = useAuthContext();
   const role = userData?.role;
-
-  // ✅ Usa currentCondominioId do contexto em vez de params
-  const condoId = currentCondominioId ?? '';
 
   const {
     unidades,
@@ -87,22 +86,10 @@ export default function UnidadesPage() {
     setPanelOpen(true);
   };
 
-  if (!condoId) {
-    return (
-      <div className="flex flex-col items-center justify-center h-96 gap-4">
-        <AlertCircle className="w-12 h-12 text-orange-400" />
-        <div className="text-center">
-          <h3 className="text-lg font-semibold text-zinc-800">Nenhum condomínio selecionado</h3>
-          <p className="text-sm text-zinc-500 mt-1">Selecione um condomínio no menu superior</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
+  if (!condoId || loading) {
     return (
       <div className="flex items-center justify-center h-48">
-        <div className="w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+        <Loader2 className="w-6 h-6 animate-spin text-orange-500" />
       </div>
     );
   }

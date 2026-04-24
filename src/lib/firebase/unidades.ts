@@ -1,5 +1,6 @@
 import { db } from './firebase';
 import { withCondominioFilter } from './queryFilters';
+import { logAudit } from './auditLog';
 import {
   collection,
   addDoc,
@@ -28,6 +29,12 @@ export interface UnidadeInput {
   ativaQuotaIndividual?: boolean;
   status: 'vaga' | 'ocupada';
   observacoes?: string;
+}
+
+export interface UnidadeActor {
+  actorId: string;
+  actorNome: string;
+  actorRole: string;
 }
 
 /* =====================================================
@@ -61,10 +68,10 @@ export const getUnidades = async (
 
 export const createUnidade = async (
   condominioId: string,
-  data: UnidadeInput
+  data: UnidadeInput,
+  actor?: UnidadeActor,
 ) => {
-
-  await addDoc(unidadesCollection, {
+  const docRef = await addDoc(unidadesCollection, {
     condominioId,
     numero: data.numero,
     bloco: data.bloco ?? null,
@@ -72,9 +79,7 @@ export const createUnidade = async (
     area: data.area ?? null,
     fracao: data.fracao ?? null,
     permilagem: data.permilagem ?? null,
-    quotaIndividual: data.ativaQuotaIndividual
-      ? data.quotaIndividual ?? null
-      : null,
+    quotaIndividual: data.ativaQuotaIndividual ? data.quotaIndividual ?? null : null,
     ativaQuotaIndividual: data.ativaQuotaIndividual ?? false,
     status: data.status,
     observacoes: data.observacoes ?? null,
@@ -83,6 +88,21 @@ export const createUnidade = async (
   });
 
   await atualizarTotalUnidades(condominioId);
+
+  if (actor) {
+    void logAudit({
+      actorId:      actor.actorId,
+      actorNome:    actor.actorNome,
+      actorRole:    actor.actorRole,
+      accao:        'unidade_criada',
+      categoria:    'condominio',
+      descricao:    `Unidade "${data.numero}"${data.bloco ? ` (Bloco ${data.bloco})` : ''} criada`,
+      condominioId,
+      entidadeId:   docRef.id,
+      entidadeTipo: 'unidade',
+      meta:         { numero: data.numero, bloco: data.bloco, tipo: data.tipo, status: data.status },
+    });
+  }
 };
 
 /* =====================================================
@@ -92,9 +112,9 @@ export const createUnidade = async (
 export const updateUnidade = async (
   id: string,
   condominioId: string,
-  data: UnidadeInput
+  data: UnidadeInput,
+  actor?: UnidadeActor,
 ) => {
-
   const unidadeRef = doc(db, 'unidades', id);
 
   await updateDoc(unidadeRef, {
@@ -104,9 +124,7 @@ export const updateUnidade = async (
     area: data.area ?? null,
     fracao: data.fracao ?? null,
     permilagem: data.permilagem ?? null,
-    quotaIndividual: data.ativaQuotaIndividual
-      ? data.quotaIndividual ?? null
-      : null,
+    quotaIndividual: data.ativaQuotaIndividual ? data.quotaIndividual ?? null : null,
     ativaQuotaIndividual: data.ativaQuotaIndividual ?? false,
     status: data.status,
     observacoes: data.observacoes ?? null,
@@ -114,6 +132,21 @@ export const updateUnidade = async (
   });
 
   await atualizarTotalUnidades(condominioId);
+
+  if (actor) {
+    void logAudit({
+      actorId:      actor.actorId,
+      actorNome:    actor.actorNome,
+      actorRole:    actor.actorRole,
+      accao:        'unidade_editada',
+      categoria:    'condominio',
+      descricao:    `Unidade "${data.numero}" actualizada`,
+      condominioId,
+      entidadeId:   id,
+      entidadeTipo: 'unidade',
+      meta:         { numero: data.numero, bloco: data.bloco, tipo: data.tipo, status: data.status },
+    });
+  }
 };
 
 /* =====================================================
@@ -122,12 +155,25 @@ export const updateUnidade = async (
 
 export const deleteUnidade = async (
   id: string,
-  condominioId: string
+  condominioId: string,
+  actor?: UnidadeActor,
 ) => {
-
   await deleteDoc(doc(db, 'unidades', id));
-
   await atualizarTotalUnidades(condominioId);
+
+  if (actor) {
+    void logAudit({
+      actorId:      actor.actorId,
+      actorNome:    actor.actorNome,
+      actorRole:    actor.actorRole,
+      accao:        'unidade_eliminada',
+      categoria:    'condominio',
+      descricao:    `Unidade ${id} eliminada`,
+      condominioId,
+      entidadeId:   id,
+      entidadeTipo: 'unidade',
+    });
+  }
 };
 
 /* =====================================================
@@ -136,14 +182,27 @@ export const deleteUnidade = async (
 
 export const deleteMultipleUnidades = async (
   ids: string[],
-  condominioId: string
+  condominioId: string,
+  actor?: UnidadeActor,
 ) => {
-
   for (const id of ids) {
     await deleteDoc(doc(db, 'unidades', id));
   }
-
   await atualizarTotalUnidades(condominioId);
+
+  if (actor) {
+    void logAudit({
+      actorId:      actor.actorId,
+      actorNome:    actor.actorNome,
+      actorRole:    actor.actorRole,
+      accao:        'unidade_eliminada',
+      categoria:    'condominio',
+      descricao:    `${ids.length} unidades eliminadas`,
+      condominioId,
+      entidadeTipo: 'unidade',
+      meta:         { ids },
+    });
+  }
 };
 
 /* =====================================================

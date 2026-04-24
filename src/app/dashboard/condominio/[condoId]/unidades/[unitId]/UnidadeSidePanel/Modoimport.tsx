@@ -1,6 +1,6 @@
 'use client';
 
-import { Upload, FileSpreadsheet } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle2 } from 'lucide-react';
 import { UnidadeInput } from '@/lib/firebase/unidades';
 import { StatusType } from './index';
 
@@ -136,8 +136,9 @@ export default function ModoImport({
       {/* Resultado sucesso */}
       {importedData.length > 0 && (
         <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-          <p className="text-sm font-medium text-green-900">
-            ✓ {importedData.length} unidade{importedData.length !== 1 ? 's' : ''} pronta{importedData.length !== 1 ? 's' : ''} para importar
+          <p className="text-sm font-medium text-green-900 flex items-center gap-1.5">
+            <CheckCircle2 size={14} className="text-green-600" />
+            {importedData.length} unidade{importedData.length !== 1 ? 's' : ''} pronta{importedData.length !== 1 ? 's' : ''} para importar
           </p>
           {importErrors.length > 0 && (
             <p className="text-xs text-green-700 mt-1">

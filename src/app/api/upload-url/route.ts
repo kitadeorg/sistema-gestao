@@ -16,13 +16,13 @@ const s3 = new S3Client({
 
 export async function POST(request: Request) {
   try {
-    const { fileName, fileType } = await request.json();
+    const { fileName, fileType, folder = 'condominio-logos' } = await request.json();
 
     if (!fileName || !fileType) {
       return NextResponse.json({ error: 'Nome e tipo do ficheiro são obrigatórios.' }, { status: 400 });
     }
 
-    const uniqueKey = `condominio-logos/${randomUUID()}-${fileName}`;
+    const uniqueKey = `${folder}/${randomUUID()}-${fileName}`;
 
     const command = new PutObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME,

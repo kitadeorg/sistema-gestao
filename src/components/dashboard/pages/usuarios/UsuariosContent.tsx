@@ -98,7 +98,11 @@ export default function UsuariosContent() {
         label: 'Eliminar',
         onClick: async () => {
           try {
-            await deleteUser(userId);
+            await deleteUser(userId, {
+              actorId:   userData!.uid,
+              actorNome: userData!.nome,
+              actorRole: userData!.role,
+            });
             await fetchUsers();
             toast.success('Utilizador eliminado com sucesso.');
           } catch (err: any) {
@@ -121,7 +125,11 @@ export default function UsuariosContent() {
       return;
     }
     try {
-      await toggleUserStatus(userId, currentStatus);
+      await toggleUserStatus(userId, currentStatus, {
+        actorId:   userData!.uid,
+        actorNome: userData!.nome,
+        actorRole: userData!.role,
+      });
       await fetchUsers();
       toast.success('Estado do utilizador actualizado.');
     } catch (err: any) {
@@ -322,7 +330,7 @@ export default function UsuariosContent() {
           )}
         >
           <option value="todos">Todos os E-mails</option>
-          <option value="contactar">⚠️ Para Contactar</option>
+          <option value="contactar">Para Contactar</option>
         </select>
 
         {/* Refresh */}

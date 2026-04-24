@@ -81,6 +81,13 @@ function EmailStatusBadge({ status }: { status?: EmailDeliveryStatus }) {
   }
 
   switch (status) {
+    case 'email_enviado':
+      return (
+        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border bg-blue-50 text-blue-700 border-blue-200">
+          <CheckCircle2 size={10} />
+          Enviado
+        </span>
+      );
     case 'email_entregue':
       return (
         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border bg-emerald-50 text-emerald-700 border-emerald-200">

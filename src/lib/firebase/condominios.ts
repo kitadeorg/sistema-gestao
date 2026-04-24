@@ -16,6 +16,14 @@ import {
   documentId,
 } from 'firebase/firestore';
 import type { Condominio, CondominioFormData, UserRole } from '@/types';
+import { logAudit } from './auditLog';
+
+// Actor injectado nas operações de escrita
+export interface CondominioActorInput {
+  actorId: string;
+  actorNome: string;
+  actorRole: string;
+}
 
 // ─────────────────────────────────────────────
 // REFERÊNCIA DA COLEÇÃO
@@ -143,7 +151,10 @@ export const getCondominiosByStatus = async (
 /**
  * Cria um novo condomínio com valores padrão.
  */
-export const createCondominio = async (data: CondominioFormData): Promise<string> => {
+export const createCondominio = async (
+  data: CondominioFormData,
+  actor?: CondominioActorInput,
+): Promise<string> => {
   const docRef = await addDoc(condominiosCollection, {
     ...data,
     totalUnidades: 0,
@@ -158,6 +169,22 @@ export const createCondominio = async (data: CondominioFormData): Promise<string
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  if (actor) {
+    void logAudit({
+      actorId:      actor.actorId,
+      actorNome:    actor.actorNome,
+      actorRole:    actor.actorRole,
+      accao:        'condominio_criado',
+      categoria:    'condominio',
+      descricao:    `Condomínio "${data.nome}" criado`,
+      condominioId: docRef.id,
+      entidadeId:   docRef.id,
+      entidadeTipo: 'condominio',
+      meta:         { nome: data.nome },
+    });
+  }
+
   return docRef.id;
 };
 
@@ -167,12 +194,27 @@ export const createCondominio = async (data: CondominioFormData): Promise<string
 export const updateCondominio = async (
   id: string,
   data: CondominioFormData,
+  actor?: CondominioActorInput,
 ): Promise<void> => {
   const condominioDoc = doc(db, 'condominios', id);
   await updateDoc(condominioDoc, {
     ...data,
     updatedAt: serverTimestamp(),
   });
+
+  if (actor) {
+    void logAudit({
+      actorId:      actor.actorId,
+      actorNome:    actor.actorNome,
+      actorRole:    actor.actorRole,
+      accao:        'configuracoes_alteradas',
+      categoria:    'condominio',
+      descricao:    `Condomínio "${data.nome}" actualizado`,
+      condominioId: id,
+      entidadeId:   id,
+      entidadeTipo: 'condominio',
+    });
+  }
 };
 
 /**
@@ -203,10 +245,26 @@ export const toggleCondominioStatus = async (
 export const updateConfiguracoes = async (
   id: string,
   configuracoes: Partial<Condominio['configuracoes']>,
+  actor?: CondominioActorInput,
 ): Promise<void> => {
   const condominioDoc = doc(db, 'condominios', id);
   await updateDoc(condominioDoc, {
     configuracoes,
     updatedAt: serverTimestamp(),
   });
+
+  if (actor) {
+    void logAudit({
+      actorId:      actor.actorId,
+      actorNome:    actor.actorNome,
+      actorRole:    actor.actorRole,
+      accao:        'configuracoes_alteradas',
+      categoria:    'condominio',
+      descricao:    `Configurações financeiras do condomínio ${id} actualizadas`,
+      condominioId: id,
+      entidadeId:   id,
+      entidadeTipo: 'condominio',
+      meta:         { configuracoes },
+    });
+  }
 };

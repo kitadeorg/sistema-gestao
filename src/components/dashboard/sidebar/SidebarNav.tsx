@@ -17,8 +17,8 @@ import {
   Home,
   AlertTriangle,
   UserCheck,
-} from 'lucide-react';
-import NavSection from './NavSection';
+  ShieldCheck,
+} from 'lucide-react';import NavSection from './NavSection';
 import NavItem from './NavItem';
 import ExpandableNavItem from './ExpandableNavItem';
 
@@ -43,7 +43,11 @@ interface NavSectionConfig {
 type NavConfig = NavSectionConfig[];
 
 const condoBase = (condoId?: string) =>
-  condoId ? `/dashboard/condominio/${condoId}` : '/dashboard';
+  condoId && condoId !== 'all' ? `/dashboard/condominio/${condoId}` : '/dashboard';
+
+/** Verifica se o condoId é válido (não é 'all' nem vazio) */
+const hasValidCondo = (condoId?: string): condoId is string =>
+  !!condoId && condoId !== 'all';
 
 const navConfig: Record<string, (selectedCondo?: string) => NavConfig> = {
 
@@ -52,11 +56,12 @@ const navConfig: Record<string, (selectedCondo?: string) => NavConfig> = {
     {
       label: 'Gestão de Plataforma',
       items: [
-        { href: '/dashboard',               icon: BarChart3,  label: 'Geral',        activePaths: ['/dashboard'] },
-        { href: '/dashboard/usuarios',      icon: Users,      label: 'Usuários',      activePaths: ['/dashboard/usuarios'] },
-        { href: '/dashboard/condominios',   icon: Building2,  label: 'Condomínios',   activePaths: ['/dashboard/condominios'] },
-        { href: '/dashboard/relatorios',    icon: FileText,   label: 'Relatórios',    activePaths: ['/dashboard/relatorios'] },
-        { href: '/dashboard/configuracoes', icon: Settings,   label: 'Configurações', activePaths: ['/dashboard/configuracoes'] },
+        { href: '/dashboard',               icon: BarChart3,   label: 'Geral',        activePaths: ['/dashboard'] },
+        { href: '/dashboard/usuarios',      icon: Users,       label: 'Usuários',      activePaths: ['/dashboard/usuarios'] },
+        { href: '/dashboard/condominios',   icon: Building2,   label: 'Condomínios',   activePaths: ['/dashboard/condominios'] },
+        { href: '/dashboard/relatorios',    icon: FileText,    label: 'Relatórios',    activePaths: ['/dashboard/relatorios'] },
+        { href: '/dashboard/audit',         icon: ShieldCheck, label: 'Audit Log',     activePaths: ['/dashboard/audit'] },
+        { href: '/dashboard/configuracoes', icon: Settings,    label: 'Configurações', activePaths: ['/dashboard/configuracoes'] },
       ],
     },
   ],
@@ -71,40 +76,49 @@ const navConfig: Record<string, (selectedCondo?: string) => NavConfig> = {
           href: '#',
           icon: Building2,
           label: 'Seu Portfólio',
-          items: selectedCondo ? [
-            { href: `/dashboard/condominio/${selectedCondo}`,           icon: Home,  label: 'Visão por Condomínio', activePaths: [`/dashboard/condominio/${selectedCondo}`] },
-            { href: `/dashboard/condominio/${selectedCondo}/moradores`, icon: Users, label: 'Moradores',            activePaths: [`/dashboard/condominio/${selectedCondo}/moradores`] },
-            { href: `/dashboard/condominio/${selectedCondo}/unidades`,  icon: Home,  label: 'Unidades',             activePaths: [`/dashboard/condominio/${selectedCondo}/unidades`] },
+          items: hasValidCondo(selectedCondo) ? [
+            { href: `/dashboard/condominio/${selectedCondo}`,                icon: Home,         label: 'Visão por Condomínio', activePaths: [`/dashboard/condominio/${selectedCondo}`] },
+            { href: `/dashboard/condominio/${selectedCondo}/moradores`,       icon: Users,        label: 'Moradores',            activePaths: [`/dashboard/condominio/${selectedCondo}/moradores`] },
+            { href: `/dashboard/condominio/${selectedCondo}/unidades`,        icon: Home,         label: 'Unidades',             activePaths: [`/dashboard/condominio/${selectedCondo}/unidades`] },
+            { href: `/dashboard/condominio/${selectedCondo}/sindico`,         icon: ShieldCheck,  label: 'Síndico',              activePaths: [`/dashboard/condominio/${selectedCondo}/sindico`] },
+            { href: `/dashboard/condominio/${selectedCondo}/equipe`,          icon: UserCheck,    label: 'Equipa',               activePaths: [`/dashboard/condominio/${selectedCondo}/equipe`] },
+            { href: `/dashboard/condominio/${selectedCondo}/configuracoes`,   icon: Settings,     label: 'Configurações',        activePaths: [`/dashboard/condominio/${selectedCondo}/configuracoes`] },
           ] : [],
         },
       ],
     },
     {
-  label: 'Financeiro',
-  items: selectedCondo ? [
-    {
-      href: `/dashboard/condominio/${selectedCondo}/financeiro/fluxo-caixa`,
-      icon: DollarSign,
-      label: 'Fluxo de Caixa',
-      activePaths: [`/dashboard/condominio/${selectedCondo}/financeiro/fluxo-caixa`],
+      label: 'Financeiro',
+      items: hasValidCondo(selectedCondo) ? [
+        {
+          href: `/dashboard/condominio/${selectedCondo}/financeiro/quotas`,
+          icon: Receipt,
+          label: 'Quotas Mensais',
+          activePaths: [`/dashboard/condominio/${selectedCondo}/financeiro/quotas`],
+        },
+        {
+          href: `/dashboard/condominio/${selectedCondo}/financeiro/fluxo-caixa`,
+          icon: DollarSign,
+          label: 'Fluxo de Caixa',
+          activePaths: [`/dashboard/condominio/${selectedCondo}/financeiro/fluxo-caixa`],
+        },
+        {
+          href: `/dashboard/condominio/${selectedCondo}/financeiro/pagamentos`,
+          icon: Receipt,
+          label: 'Pagamentos',
+          activePaths: [`/dashboard/condominio/${selectedCondo}/financeiro/pagamentos`],
+        },
+        {
+          href: `/dashboard/condominio/${selectedCondo}/financeiro/inadimplencia`,
+          icon: AlertTriangle,
+          label: 'Inadimplência',
+          activePaths: [`/dashboard/condominio/${selectedCondo}/financeiro/inadimplencia`],
+        },
+      ] : [],
     },
-    {
-      href: `/dashboard/condominio/${selectedCondo}/financeiro/pagamentos`,
-      icon: Receipt,
-      label: 'Pagamentos',
-      activePaths: [`/dashboard/condominio/${selectedCondo}/financeiro/pagamentos`],
-    },
-    {
-      href: `/dashboard/condominio/${selectedCondo}/financeiro/inadimplencia`,
-      icon: AlertTriangle,
-      label: 'Inadimplência',
-      activePaths: [`/dashboard/condominio/${selectedCondo}/financeiro/inadimplencia`],
-    },
-  ] : [],
-},
     {
       label: 'Operacional',
-      items: selectedCondo ? [
+      items: hasValidCondo(selectedCondo) ? [
         { href: `/dashboard/condominio/${selectedCondo}/ocorrencias`, icon: Bell,   label: 'Ocorrências', activePaths: [`/dashboard/condominio/${selectedCondo}/ocorrencias`] },
         { href: `/dashboard/condominio/${selectedCondo}/manutencao`,  icon: Wrench, label: 'Manutenção',  activePaths: [`/dashboard/condominio/${selectedCondo}/manutencao`] },
       ] : [],
@@ -112,7 +126,8 @@ const navConfig: Record<string, (selectedCondo?: string) => NavConfig> = {
     {
       label: 'Conta',
       items: [
-        { href: '/dashboard/configuracoes', icon: Settings, label: 'Configurações', activePaths: ['/dashboard/configuracoes'] },
+        { href: '/dashboard/audit',         icon: ShieldCheck, label: 'Audit Log',     activePaths: ['/dashboard/audit'] },
+        { href: '/dashboard/configuracoes', icon: Settings,    label: 'Configurações', activePaths: ['/dashboard/configuracoes'] },
       ],
     },
   ],
@@ -120,19 +135,19 @@ const navConfig: Record<string, (selectedCondo?: string) => NavConfig> = {
   /* ══ SÍNDICO ══ */
   sindico: (selectedCondo) => {
     const base = condoBase(selectedCondo);
-    return [
-      {
+    return [      {
         label: 'Meu Condomínio',
         items: [
           { href: '/dashboard',        icon: LayoutDashboard, label: 'Painel',       activePaths: ['/dashboard'] },
           { href: `${base}/moradores`, icon: Users,           label: 'Moradores',    activePaths: [`${base}/moradores`] },
           { href: `${base}/unidades`,  icon: Home,            label: 'Unidades',     activePaths: [`${base}/unidades`] },
-          { href: `${base}/equipe`,    icon: UserCheck,       label: 'Minha Equipe', activePaths: [`${base}/equipe`] },
+          { href: `${base}/equipe`,    icon: UserCheck,       label: 'Minha Equipa', activePaths: [`${base}/equipe`] },
         ],
       },
       {
         label: 'Financeiro',
         items: [
+          { href: `${base}/financeiro/quotas`,        icon: Receipt,       label: 'Quotas Mensais',  activePaths: [`${base}/financeiro/quotas`] },
           { href: `${base}/financeiro/fluxo-caixa`,   icon: DollarSign,    label: 'Fluxo de Caixa', activePaths: [`${base}/financeiro/fluxo-caixa`] },
           { href: `${base}/financeiro/inadimplencia`, icon: AlertTriangle, label: 'Inadimplência',  activePaths: [`${base}/financeiro/inadimplencia`] },
           { href: `${base}/financeiro/relatorios`,    icon: FileText,      label: 'Relatórios',     activePaths: [`${base}/financeiro/relatorios`] },
