@@ -22,6 +22,7 @@ import {
   getDocs,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
+import Pagination, { usePagination } from '@/components/ui/Pagination';
 
 /* ─────────────────────────────────────────────────────────────────────────────
    TYPES
@@ -200,6 +201,9 @@ export default function ManutencaoContent({ condominios }: Props) {
 
     return matchTab && matchCondo && matchStatus && matchSearch;
   });
+
+  // Paginação
+  const { paged, page, setPage, totalPages, totalItems, pageSize } = usePagination(filtradas, 15);
 
   /* ── Skeleton ── */
 
@@ -451,7 +455,7 @@ export default function ManutencaoContent({ condominios }: Props) {
             </p>
           </div>
         ) : (
-          filtradas.map((m, idx) => {
+          paged.map((m, idx) => {
             const tipo   = tipoConfig(m.tipo);
             const status = statusManuConfig(m.status);
 
@@ -503,6 +507,19 @@ export default function ManutencaoContent({ condominios }: Props) {
           })
         )}
       </div>
+
+      {/* Paginação */}
+      {filtradas.length > 0 && (
+        <div className="mt-6">
+          <Pagination
+            currentPage={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            itemsPerPage={pageSize}
+            totalItems={totalItems}
+          />
+        </div>
+      )}
     </div>
   );
 }

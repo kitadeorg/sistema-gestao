@@ -229,8 +229,6 @@ export default function AuthPage() {
 
         {/* ── Painel esquerdo ── */}
         <div className="hidden md:flex w-5/12 bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 p-10 flex-col justify-between relative overflow-hidden shrink-0">
-          <div className="absolute -top-16 -right-16 w-56 h-56 bg-white/5 rounded-full" />
-          <div className="absolute -bottom-20 -left-20 w-72 h-72 bg-white/5 rounded-full" />
 
           {/* Logo */}
           <div className="relative z-10">
@@ -239,7 +237,8 @@ export default function AuthPage() {
               alt="CONDO."
               width={130}
               height={31}
-              className="h-8 w-auto brightness-0 invert"
+              className="h-8 w-auto drop-shadow-lg"
+              style={{ filter: 'brightness(0) invert(1)' }}
             />
             <p className="text-orange-100 text-sm mt-3 leading-relaxed">
               Gestão inteligente para condomínios
@@ -254,8 +253,8 @@ export default function AuthPage() {
               { Icon: Briefcase, title: 'Profissional',     desc: 'Ferramentas para gestão completa' },
             ].map(({ Icon, title, desc }) => (
               <div key={title} className="flex items-start gap-3">
-                <div className="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center shrink-0">
-                  <Icon className="w-4 h-4 text-white" />
+                <div className="w-10 h-10 bg-orange-600/30 backdrop-blur-sm rounded-xl flex items-center justify-center shrink-0 border border-orange-400/30">
+                  <Icon className="w-5 h-5 text-white" strokeWidth={2.5} />
                 </div>
                 <div>
                   <p className="text-white font-semibold text-sm">{title}</p>

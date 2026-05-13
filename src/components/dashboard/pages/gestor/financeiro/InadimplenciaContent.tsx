@@ -140,20 +140,23 @@ export default function InadimplenciaContent({ condominios }: Props) {
       const condoIds = condominios.map((c) => c.id);
       const chunks = chunkArray(condoIds, 30);
 
-      // ── Buscar pagamentos atrasados ──
+      // ── Buscar quotas atrasadas/pendentes vencidas ──
       const atrasadosResults = await Promise.all(
         chunks.map((chunk) =>
           getDocs(
             query(
-              collection(db, 'pagamentos'),
+              collection(db, 'quotas'),
               where('condominioId', 'in', chunk),
-              where('status', '==', 'pendente'),
-              where('dataVencimento', '<', Timestamp.fromDate(hoje))
+              where('status', 'in', ['atrasado', 'pendente']),
             )
           )
         )
       );
-      const atrasadosDocs = atrasadosResults.flatMap((r) => r.docs);
+      // Filtrar apenas as que já venceram
+      const atrasadosDocs = atrasadosResults.flatMap((r) => r.docs).filter(doc => {
+        const venc = doc.data().dataVencimento?.toDate?.();
+        return venc && venc < hoje;
+      });
 
       // ── Buscar total de unidades por condomínio ──
       const unidadesResults = await Promise.all(
@@ -196,8 +199,8 @@ export default function InadimplenciaContent({ condominios }: Props) {
           id: doc.id,
           condominioId: d.condominioId,
           condominioNome: condo?.nome || condo?.name || 'Desconhecido',
-          moradorNome: d.moradorNome || d.nomeDevedor || 'Morador',
-          unidade: d.unidade || d.numeroUnidade || '-',
+          moradorNome: d.moradorNome || 'Morador',
+          unidade: d.unidadeNumero || '-',
           valor: d.valor || 0,
           dataVencimento: vencimento,
           diasAtraso: diasAtraso(vencimento),

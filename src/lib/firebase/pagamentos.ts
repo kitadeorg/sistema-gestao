@@ -35,7 +35,7 @@ export interface PagamentoInput {
 
 export const getPagamentos = async (
   condominioId: string | null,
-  isAdmin: boolean
+  isSuperAdmin: boolean
 ) => {
 
   const baseQuery = query(
@@ -46,7 +46,7 @@ export const getPagamentos = async (
   const safeQuery = withCondominioFilter(
     baseQuery,
     condominioId,
-    isAdmin
+    isSuperAdmin
   );
 
   const snapshot = await getDocs(safeQuery);
@@ -102,7 +102,7 @@ export const marcarComoPago = async (
 
 export const getPagamentosPorMes = async (
   condominioId: string | null,
-  isAdmin: boolean,
+  isSuperAdmin: boolean,
   mesReferencia: string
 ) => {
 
@@ -114,7 +114,7 @@ export const getPagamentosPorMes = async (
   const safeQuery = withCondominioFilter(
     baseQuery,
     condominioId,
-    isAdmin
+    isSuperAdmin
   );
 
   const snapshot = await getDocs(safeQuery);

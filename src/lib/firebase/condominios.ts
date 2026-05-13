@@ -14,6 +14,7 @@ import {
   orderBy,
   where,
   documentId,
+  arrayUnion,
 } from 'firebase/firestore';
 import type { Condominio, CondominioFormData, UserRole } from '@/types';
 import { logAudit } from './auditLog';
@@ -83,13 +84,13 @@ export const getCondominiosByUser = async (
   condominiosGeridos?: string[],
 ): Promise<Condominio[]> => {
 
-  // ✅ Admin vê todos
-  if (role === 'admin') {
+  // ✅ Super Admin vê todos
+  if (role === 'super_admin') {
     return getCondominios();
   }
 
-  // ✅ Gestor vê o seu portfólio
-  if (role === 'gestor' && condominiosGeridos?.length) {
+  // ✅ Admin scoped e Gestor vêem o seu portfólio
+  if ((role === 'admin' || role === 'gestor') && condominiosGeridos?.length) {
     return getCondominiosByIds(condominiosGeridos);
   }
 
@@ -150,6 +151,8 @@ export const getCondominiosByStatus = async (
 
 /**
  * Cria um novo condomínio com valores padrão.
+ * Se o actor for 'admin' (scoped), adiciona automaticamente o novo ID
+ * ao seu array condominiosGeridos para que fique visível no seu portfólio.
  */
 export const createCondominio = async (
   data: CondominioFormData,
@@ -169,6 +172,14 @@ export const createCondominio = async (
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });
+
+  // Admin scoped: adicionar o novo condomínio ao seu portfólio
+  if (actor && actor.actorRole === 'admin') {
+    await updateDoc(doc(db, 'usuarios', actor.actorId), {
+      condominiosGeridos: arrayUnion(docRef.id),
+      updatedAt: serverTimestamp(),
+    });
+  }
 
   if (actor) {
     void logAudit({

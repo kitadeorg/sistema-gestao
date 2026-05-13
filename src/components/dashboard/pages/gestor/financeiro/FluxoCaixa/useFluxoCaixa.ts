@@ -35,7 +35,6 @@ function getPeriodoRange(periodo: Periodo) {
 }
 
 export function useFluxoCaixa(condominios: any[], periodo: Periodo) {
-
   const [dados, setDados] = useState<FluxoGeral | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,50 +53,85 @@ export function useFluxoCaixa(condominios: any[], periodo: Periodo) {
       const condoIds = condominios.map((c) => c.id);
       const chunks = chunkArray(condoIds, 30);
 
-      const receitaResults = await Promise.all(
-        chunks.map((chunk) =>
-          getDocs(
-            query(
-              collection(db, 'pagamentos'),
-              where('condominioId', 'in', chunk),
-              where('status', '==', 'pago'),
-              where('dataPagamento', '>=', Timestamp.fromDate(inicio)),
-              where('dataPagamento', '<=', Timestamp.fromDate(fim))
-            )
-          )
-        )
-      );
+      // ── Receita: quotas pagas no período ──────────────────────────
+      const [receitaQuotasSnaps, receitaPagSnaps, despesasSnaps] = await Promise.all([
+        // Quotas pagas
+        Promise.all(chunks.map(ch =>
+          getDocs(query(
+            collection(db, 'quotas'),
+            where('condominioId', 'in', ch),
+            where('status', '==', 'pago'),
+          ))
+        )),
+        // Pagamentos pagos (fallback para condomínios sem quotas)
+        Promise.all(chunks.map(ch =>
+          getDocs(query(
+            collection(db, 'pagamentos'),
+            where('condominioId', 'in', ch),
+            where('status', '==', 'pago'),
+          ))
+        )),
+        // Despesas no período
+        Promise.all(chunks.map(ch =>
+          getDocs(query(
+            collection(db, 'despesas'),
+            where('condominioId', 'in', ch),
+          ))
+        )),
+      ]);
 
-      const receitaDocs = receitaResults.flatMap((r) => r.docs);
-
+      // Normalizar receita de quotas
       const mapaReceita = new Map<string, number>();
+      const condosComQuotas = new Set<string>();
 
-      receitaDocs.forEach((doc) => {
+      receitaQuotasSnaps.flatMap(s => s.docs).forEach(doc => {
         const d = doc.data();
-        mapaReceita.set(d.condominioId, (mapaReceita.get(d.condominioId) || 0) + (d.valor || 0));
+        const dataPag = d.dataPagamento?.toDate?.();
+        if (!dataPag || dataPag < inicio || dataPag > fim) return;
+        mapaReceita.set(d.condominioId, (mapaReceita.get(d.condominioId) ?? 0) + (d.valor ?? 0));
+        condosComQuotas.add(d.condominioId);
       });
 
-      const porCondominio: FluxoCaixaItem[] = condominios.map((condo) => {
-        const receita = mapaReceita.get(condo.id) || 0;
+      // Fallback: pagamentos para condomínios sem quotas
+      receitaPagSnaps.flatMap(s => s.docs).forEach(doc => {
+        const d = doc.data();
+        if (condosComQuotas.has(d.condominioId)) return; // já tem quotas
+        const dataPag = d.dataPagamento?.toDate?.();
+        if (!dataPag || dataPag < inicio || dataPag > fim) return;
+        mapaReceita.set(d.condominioId, (mapaReceita.get(d.condominioId) ?? 0) + (d.valor ?? 0));
+      });
+
+      // Despesas por condomínio no período
+      const mapaDespesas = new Map<string, number>();
+      despesasSnaps.flatMap(s => s.docs).forEach(doc => {
+        const d = doc.data();
+        const dataDespesa = d.data?.toDate?.();
+        if (!dataDespesa || dataDespesa < inicio || dataDespesa > fim) return;
+        mapaDespesas.set(d.condominioId, (mapaDespesas.get(d.condominioId) ?? 0) + (d.valor ?? 0));
+      });
+
+      // Montar por condomínio
+      const porCondominio: FluxoCaixaItem[] = condominios.map(condo => {
+        const receita  = mapaReceita.get(condo.id) ?? 0;
+        const despesas = mapaDespesas.get(condo.id) ?? 0;
+        const margem   = receita - despesas;
+        const margemPercent = receita > 0 ? (margem / receita) * 100 : 0;
         return {
-          condominioId: condo.id,
-          condominioNome: condo.nome || 'Sem nome',
+          condominioId:   condo.id,
+          condominioNome: condo.nome ?? 'Sem nome',
           receita,
-          despesas: 0,
-          margem: receita,
-          margemPercent: 100,
+          despesas,
+          margem,
+          margemPercent,
         };
       });
 
-      const receitaTotal = porCondominio.reduce((a, c) => a + c.receita, 0);
+      const receitaTotal  = porCondominio.reduce((a, c) => a + c.receita, 0);
+      const despesasTotal = porCondominio.reduce((a, c) => a + c.despesas, 0);
+      const margemTotal   = receitaTotal - despesasTotal;
+      const margemPercent = receitaTotal > 0 ? (margemTotal / receitaTotal) * 100 : 0;
 
-      setDados({
-        receitaTotal,
-        despesasTotal: 0,
-        margemTotal: receitaTotal,
-        margemPercent: 100,
-        porCondominio,
-      });
+      setDados({ receitaTotal, despesasTotal, margemTotal, margemPercent, porCondominio });
 
     } catch (err) {
       console.error(err);
@@ -105,12 +139,9 @@ export function useFluxoCaixa(condominios: any[], periodo: Periodo) {
     } finally {
       setLoading(false);
     }
-
   }, [condominios, periodo]);
 
-  useEffect(() => {
-    fetchFluxo();
-  }, [fetchFluxo]);
+  useEffect(() => { fetchFluxo(); }, [fetchFluxo]);
 
   return { dados, loading, error, refresh: fetchFluxo };
 }

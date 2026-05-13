@@ -1,10 +1,10 @@
 // components/dashboard/Topbar.tsx
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Building2, ChevronDown, User as UserIcon,
-  Settings, LogOut, Menu, LayoutGrid, Check,
+  Settings, LogOut, Menu, LayoutGrid, Check, Search, X,
 } from 'lucide-react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useDashboardContext } from '@/contexts/DashboardContext';
@@ -73,6 +73,27 @@ export function Topbar() {
 
   const isVisaoGlobal = selectedCondo === 'all';
 
+  // ── Pesquisa no dropdown do header ──
+  const [condoSearch, setCondoSearch] = useState('');
+  const condoSearchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (condoDropdown.isOpen) {
+      setCondoSearch('');
+      setTimeout(() => condoSearchRef.current?.focus(), 50);
+    }
+  }, [condoDropdown.isOpen]);
+
+  const globalOption  = condominiosList.find(c => c.id === 'all');
+  const reaisOptions  = condominiosList.filter(c => c.id !== 'all');
+  const mostrarSearch = reaisOptions.length > 6;
+
+  const filtradosHeader = useMemo(() => {
+    if (!condoSearch.trim()) return reaisOptions;
+    const q = condoSearch.toLowerCase();
+    return reaisOptions.filter(c => c.nome.toLowerCase().includes(q));
+  }, [reaisOptions, condoSearch]);
+
   if (!userData) {
     return <div className="h-20 border-b border-zinc-100" />;
   }
@@ -129,33 +150,92 @@ export function Topbar() {
 
             {/* Dropdown */}
             {condoDropdown.isOpen && (
-              <div className="absolute top-full left-0 mt-2 w-64 bg-white border border-zinc-200 rounded-2xl shadow-xl overflow-hidden z-50">
-                <div className="p-2 space-y-0.5">
-                  {condominiosList.map((condo) => {
-                    const isSelected = selectedCondo === condo.id;
-                    const isGlobal   = condo.id === 'all';
+              <div className="absolute top-full left-0 mt-2 w-72 bg-white border border-zinc-200 rounded-2xl shadow-xl overflow-hidden z-50">
 
-                    return (
+                {/* Pesquisa — só aparece com mais de 6 condomínios */}
+                {mostrarSearch && (
+                  <div className="p-2 border-b border-zinc-100">
+                    <div className="relative">
+                      <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                      <input
+                        ref={condoSearchRef}
+                        type="text"
+                        value={condoSearch}
+                        onChange={e => setCondoSearch(e.target.value)}
+                        placeholder={`Pesquisar entre ${reaisOptions.length} condomínios...`}
+                        className="w-full pl-8 pr-7 py-1.5 text-xs border border-zinc-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-400"
+                      />
+                      {condoSearch && (
+                        <button
+                          onClick={() => setCondoSearch('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Lista com scroll */}
+                <div className="overflow-y-auto max-h-72 py-1">
+
+                  {/* Visão Global */}
+                  {globalOption && !condoSearch && (
+                    <>
                       <button
-                        key={condo.id}
-                        onClick={() => handleSelectCondo(condo.id)}
+                        onClick={() => handleSelectCondo('all')}
                         className={cn(
-                          'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors text-sm',
-                          isSelected
+                          'w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors text-left',
+                          selectedCondo === 'all'
                             ? 'bg-orange-50 text-orange-700 font-semibold'
                             : 'text-zinc-700 hover:bg-zinc-50',
                         )}
                       >
-                        {isGlobal
-                          ? <LayoutGrid size={15} className="flex-shrink-0 text-zinc-400" />
-                          : <Building2 size={15} className="flex-shrink-0 text-zinc-400" />
-                        }
-                        <span className="flex-1 truncate">{condo.nome}</span>
-                        {isSelected && <Check size={14} className="text-orange-500 flex-shrink-0" />}
+                        <LayoutGrid size={15} className="shrink-0 text-zinc-400" />
+                        <span className="flex-1 truncate">{globalOption.nome}</span>
+                        {selectedCondo === 'all' && <Check size={14} className="text-orange-500 shrink-0" />}
                       </button>
-                    );
-                  })}
+                      <div className="mx-3 my-1 h-px bg-zinc-100" />
+                    </>
+                  )}
+
+                  {/* Condomínios */}
+                  {filtradosHeader.length === 0 ? (
+                    <div className="px-3 py-6 text-center text-xs text-zinc-400">
+                      Nenhum resultado para "{condoSearch}"
+                    </div>
+                  ) : (
+                    filtradosHeader.map(condo => (
+                      <button
+                        key={condo.id}
+                        onClick={() => handleSelectCondo(condo.id)}
+                        className={cn(
+                          'w-full flex items-center gap-3 px-3 py-2.5 text-sm transition-colors text-left',
+                          selectedCondo === condo.id
+                            ? 'bg-orange-50 text-orange-700 font-semibold'
+                            : 'text-zinc-700 hover:bg-zinc-50',
+                        )}
+                      >
+                        <Building2 size={15} className="shrink-0 text-zinc-400" />
+                        <span className="flex-1 truncate">{condo.nome}</span>
+                        {selectedCondo === condo.id && <Check size={14} className="text-orange-500 shrink-0" />}
+                      </button>
+                    ))
+                  )}
                 </div>
+
+                {/* Footer contador */}
+                {mostrarSearch && (
+                  <div className="px-3 py-2 border-t border-zinc-100 bg-zinc-50">
+                    <p className="text-xs text-zinc-400 text-center">
+                      {condoSearch
+                        ? `${filtradosHeader.length} de ${reaisOptions.length} condomínios`
+                        : `${reaisOptions.length} condomínios`
+                      }
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>

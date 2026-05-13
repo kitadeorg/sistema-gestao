@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
-import { collection, query, where, getDocs, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, Timestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
 import { useAuth } from '@/hooks/useAuth';
-import { Users, ArrowLeft, Plus, X, Loader2 } from 'lucide-react';
+import { Users, ArrowLeft, Plus, X, Loader2, LogOut } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 interface Visitante {
   id: string;
@@ -79,8 +80,8 @@ export default function VisitantesMoradorPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
 
-  // Solução para o erro de conversão de tipo (Type Cast)
-  const unidade = (userData as any)?.unidade ?? 'Minha Unidade';
+  // Usar unidadeNumero do userData (campo correto)
+  const unidade = userData?.unidadeNumero ?? 'Minha Unidade';
 
   useEffect(() => {
     if (authLoading || !condoId || !userData?.uid) return;
@@ -106,16 +107,33 @@ export default function VisitantesMoradorPage() {
 
   const handleSave = async (v: Omit<Visitante, 'id'>) => {
     try {
-      const docRef = await addDoc(collection(db, 'visitantes'), { 
-        ...v, 
-        condominioId: condoId, 
+      const docRef = await addDoc(collection(db, 'visitantes'), {
+        ...v,
+        condominioId: condoId,
         criadoEm: Timestamp.now(),
-        moradorUid: userData?.uid // Rastreabilidade
+        moradorUid: userData?.uid,
       });
       setVisitantes(prev => [{ id: docRef.id, ...v }, ...prev]);
+      toast.success('Visitante registado com sucesso.');
       setShowModal(false);
-    } catch (e) { 
-      console.error("Erro ao salvar:", e); 
+    } catch (e) {
+      console.error("Erro ao salvar:", e);
+      toast.error('Erro ao registar visitante.');
+    }
+  };
+
+  const handleRegistarSaida = async (visitante: Visitante) => {
+    if (visitante.status === 'saiu') return;
+    try {
+      const saida = new Date().toLocaleString('pt-AO');
+      await updateDoc(doc(db, 'visitantes', visitante.id), { status: 'saiu', saida });
+      setVisitantes(prev =>
+        prev.map(v => v.id === visitante.id ? { ...v, status: 'saiu', saida } : v),
+      );
+      toast.success(`Saída de ${visitante.nome} registada.`);
+    } catch (e) {
+      console.error(e);
+      toast.error('Erro ao registar saída.');
     }
   };
 
@@ -192,13 +210,23 @@ export default function VisitantesMoradorPage() {
                     </div>
                   </div>
                 </div>
-                <span className={`px-2.5 py-1 rounded-full text-[10px] uppercase font-bold tracking-tight ${
-                  v.status === 'dentro' 
-                  ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
-                  : 'bg-zinc-100 text-zinc-500 border border-zinc-200'
-                }`}>
-                  {v.status === 'dentro' ? 'Presente' : 'Saiu'}
-                </span>
+                <div className="flex items-center gap-2">
+                  {v.status === 'dentro' && (
+                    <button
+                      onClick={() => handleRegistarSaida(v)}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium border border-zinc-200 rounded-lg hover:bg-zinc-50 text-zinc-600 transition-colors"
+                    >
+                      <LogOut size={12} /> Registar Saída
+                    </button>
+                  )}
+                  <span className={`px-2.5 py-1 rounded-full text-[10px] uppercase font-bold tracking-tight ${
+                    v.status === 'dentro'
+                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                    : 'bg-zinc-100 text-zinc-500 border border-zinc-200'
+                  }`}>
+                    {v.status === 'dentro' ? 'Presente' : 'Saiu'}
+                  </span>
+                </div>
               </div>
             ))}
           </div>

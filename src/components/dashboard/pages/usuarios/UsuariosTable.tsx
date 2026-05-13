@@ -5,6 +5,7 @@ import { Pencil, Trash2, UserCheck, UserX, CheckCircle2, XCircle, AlertTriangle,
 import { cn } from '@/lib/utils';
 import { useAuthContext } from '@/contexts/AuthContext';
 import type { UserData, EmailDeliveryStatus } from '@/lib/firebase/users';
+import Pagination, { usePagination } from '@/components/ui/Pagination';
 
 type UsuariosTableProps = {
   users: UserData[];
@@ -134,7 +135,6 @@ function LoadingSkeleton() {
     </div>
   );
 }
-
 // ─────────────────────────────────────────────
 // COMPONENTE PRINCIPAL
 // ─────────────────────────────────────────────
@@ -147,6 +147,7 @@ export default function UsuariosTable({
   onToggleStatus,
 }: UsuariosTableProps) {
   const { user: firebaseUser, userData } = useAuthContext();
+  const { paged, page, setPage, totalPages, totalItems, pageSize, start, end } = usePagination(users, 15);
 
   const isAdmin    = userData?.role === 'admin';
   const currentUid = firebaseUser?.uid;
@@ -183,7 +184,7 @@ export default function UsuariosTable({
                 </td>
               </tr>
             ) : (
-              users.map((u) => {
+              paged.map((u) => {
                 const isSelf     = !!currentUid && u.id === currentUid;
                 const isAdminRow = u.role === 'admin';
                 const canManage  = isAdmin;
@@ -306,7 +307,7 @@ export default function UsuariosTable({
             Nenhum utilizador encontrado.
           </div>
         ) : (
-          users.map((u) => {
+          paged.map((u) => {
             const isSelf     = !!currentUid && u.id === currentUid;
             const isAdminRow = u.role === 'admin';
             const canManage  = isAdmin;
@@ -391,6 +392,15 @@ export default function UsuariosTable({
           })
         )}
       </div>
+
+      {/* Paginação */}
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        itemsPerPage={pageSize}
+        totalItems={totalItems}
+      />
     </div>
   );
 }

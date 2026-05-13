@@ -321,9 +321,16 @@ export async function gerarQuotasMensais(input: GerarQuotasInput): Promise<numbe
 // ACTUALIZAR STATUS (atrasos automáticos)
 // ─────────────────────────────────────────────
 
-/** Marca como atrasadas todas as quotas pendentes com vencimento passado */
+/** Marca como atrasadas todas as quotas pendentes com vencimento passado,
+ *  aplicando multa e juros configurados no condomínio */
 export async function actualizarQuotasAtrasadas(condominioId: string): Promise<number> {
   const agora = new Date();
+
+  // Buscar configurações de multa do condomínio
+  const condoSnap = await getDoc(doc(db, 'condominios', condominioId));
+  const condoData = condoSnap.exists() ? condoSnap.data() : {};
+  const multaPct  = Number(condoData.multaPorAtraso ?? 0);   // % sobre o valor
+  const jurosPct  = Number(condoData.jurosMensal    ?? 0);   // % ao mês
 
   const q = query(
     collection(db, 'quotas'),
@@ -336,11 +343,40 @@ export async function actualizarQuotasAtrasadas(condominioId: string): Promise<n
   let count = 0;
 
   snap.docs.forEach(d => {
-    const vencimento = d.data().dataVencimento?.toDate?.();
-    if (vencimento && vencimento < agora) {
-      batch.update(d.ref, { status: 'atrasado', updatedAt: serverTimestamp() });
-      count++;
+    const data       = d.data();
+    const vencimento = data.dataVencimento?.toDate?.();
+    if (!vencimento || vencimento >= agora) return;
+
+    // Calcular meses de atraso (mínimo 1)
+    const mesesAtraso = Math.max(
+      1,
+      Math.floor((agora.getTime() - vencimento.getTime()) / (1000 * 60 * 60 * 24 * 30)),
+    );
+
+    const valorOriginal = data.valorOriginal ?? data.valor; // preservar original
+    let novoValor = valorOriginal;
+
+    // Aplicar multa única (só na primeira vez)
+    if (multaPct > 0 && !data.multaAplicada) {
+      novoValor += valorOriginal * (multaPct / 100);
     }
+
+    // Aplicar juros mensais acumulados
+    if (jurosPct > 0) {
+      novoValor += valorOriginal * (jurosPct / 100) * mesesAtraso;
+    }
+
+    novoValor = Math.round(novoValor); // arredondar para inteiro (Kz)
+
+    batch.update(d.ref, {
+      status:         'atrasado',
+      valorOriginal,                    // guardar valor sem multa
+      valor:          novoValor,        // valor com multa/juros
+      multaAplicada:  multaPct > 0,
+      mesesAtraso,
+      updatedAt:      serverTimestamp(),
+    });
+    count++;
   });
 
   if (count > 0) await batch.commit();
@@ -434,5 +470,83 @@ export async function isentarQuota(quotaId: string, motivo: string, registadoPor
     entidadeId:   quotaId,
     entidadeTipo: 'quota',
     meta:         { mes: quota?.mes, ano: quota?.ano, valor: quota?.valor, motivo },
+  });
+}
+
+// ─────────────────────────────────────────────
+// PAGAMENTO PARCIAL
+// ─────────────────────────────────────────────
+
+export interface PagamentoParcialInput {
+  quotaId: string;
+  valorPago: number;
+  dataPagamento: Date;
+  observacoes?: string;
+  registadoPor: string;
+  actorNome?: string;
+  actorRole?: string;
+}
+
+/**
+ * Regista um pagamento parcial.
+ * Acumula o valor pago e calcula o saldo restante.
+ * Se o total pago cobrir o valor da quota, muda para "pago".
+ */
+export async function registarPagamentoParcial(input: PagamentoParcialInput): Promise<void> {
+  const { quotaId, valorPago, dataPagamento, observacoes, registadoPor, actorNome, actorRole } = input;
+
+  const quotaSnap = await getDoc(doc(db, 'quotas', quotaId));
+  if (!quotaSnap.exists()) throw new Error('Quota não encontrada.');
+  const quota = quotaSnap.data();
+
+  const valorTotal    = quota.valor ?? 0;
+  const jaFoiPago     = quota.valorPago ?? 0;
+  const novoTotalPago = jaFoiPago + valorPago;
+  const saldo         = valorTotal - novoTotalPago;
+
+  if (valorPago <= 0) throw new Error('O valor pago deve ser maior que zero.');
+  if (valorPago > saldo + 0.01) throw new Error(`Valor excede o saldo em dívida (${saldo.toLocaleString('pt-AO')} Kz).`);
+
+  const novoStatus: StatusQuota = saldo <= 0.01 ? 'pago' : quota.status;
+
+  await updateDoc(doc(db, 'quotas', quotaId), {
+    valorPago:     novoTotalPago,
+    saldoDevedor:  Math.max(0, saldo),
+    status:        novoStatus,
+    dataPagamento: novoStatus === 'pago' ? Timestamp.fromDate(dataPagamento) : (quota.dataPagamento ?? null),
+    observacoes:   observacoes ?? quota.observacoes ?? null,
+    registadoPor,
+    updatedAt:     serverTimestamp(),
+  });
+
+  // Histórico de pagamentos parciais
+  await addDoc(collection(db, 'pagamentos_parciais'), {
+    quotaId,
+    condominioId:  quota.condominioId,
+    moradorId:     quota.moradorId ?? null,
+    moradorNome:   quota.moradorNome ?? '',
+    unidadeNumero: quota.unidadeNumero ?? '',
+    mes:           quota.mes,
+    ano:           quota.ano,
+    valorPago,
+    saldoAntes:    saldo + valorPago,
+    saldoDepois:   Math.max(0, saldo),
+    dataPagamento: Timestamp.fromDate(dataPagamento),
+    observacoes:   observacoes ?? null,
+    registadoPor,
+    createdAt:     serverTimestamp(),
+  });
+
+  void logAudit({
+    actorId:      registadoPor,
+    actorNome:    actorNome ?? 'Sistema',
+    actorRole:    actorRole ?? 'sistema',
+    accao:        'pagamento_parcial',
+    categoria:    'financeiro',
+    descricao:    `Pagamento parcial de ${valorPago.toLocaleString('pt-AO')} Kz — ${quota.moradorNome ?? '?'} (Unidade ${quota.unidadeNumero ?? '?'})`,
+    condominioId: quota.condominioId,
+    entidadeId:   quotaId,
+    entidadeTipo: 'quota',
+    meta:         { mes: quota.mes, ano: quota.ano, valorPago, saldoDevedor: Math.max(0, saldo) },
   });
 }

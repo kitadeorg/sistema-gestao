@@ -3,6 +3,10 @@ import {
   addDoc,
   updateDoc,
   doc,
+  getDocs,
+  query,
+  where,
+  orderBy,
   serverTimestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -12,6 +16,57 @@ export interface OcorrenciaActor {
   actorId: string;
   actorNome: string;
   actorRole: string;
+}
+
+export interface Comentario {
+  id: string;
+  ocorrenciaId: string;
+  autorId: string;
+  autorNome: string;
+  autorRole: string;
+  texto: string;
+  anexos?: { url: string; nome: string; tipo: string }[];
+  createdAt: any;
+}
+
+/* ========================================================= */
+/* ✅ Comentários */
+/* ========================================================= */
+
+export async function getComentarios(ocorrenciaId: string): Promise<Comentario[]> {
+  const snap = await getDocs(
+    query(
+      collection(db, 'ocorrencias', ocorrenciaId, 'comentarios'),
+      orderBy('createdAt', 'asc'),
+    ),
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as Comentario));
+}
+
+export async function addComentario(
+  ocorrenciaId: string,
+  autor: { id: string; nome: string; role: string },
+  texto: string,
+  anexos?: { url: string; nome: string; tipo: string }[],
+): Promise<string> {
+  const ref = await addDoc(
+    collection(db, 'ocorrencias', ocorrenciaId, 'comentarios'),
+    {
+      ocorrenciaId,
+      autorId:   autor.id,
+      autorNome: autor.nome,
+      autorRole: autor.role,
+      texto:     texto.trim(),
+      anexos:    anexos ?? [],
+      createdAt: serverTimestamp(),
+    },
+  );
+  // Actualizar updatedAt da ocorrência
+  await updateDoc(doc(db, 'ocorrencias', ocorrenciaId), {
+    updatedAt:       serverTimestamp(),
+    ultimoComentario: texto.trim().slice(0, 80),
+  });
+  return ref.id;
 }
 
 /* ========================================================= */
@@ -28,12 +83,13 @@ export async function criarOcorrencia(data: {
   titulo?: string;
   descricao: string;
   categoria: string;
+  prioridade?: 'baixa' | 'media' | 'alta';
 }) {
   const ref = await addDoc(collection(db, 'ocorrencias'), {
     ...data,
-    titulo: data.titulo ?? data.descricao.slice(0, 60),
-    prioridade: 'media',
-    status: 'aberta',
+    titulo:    data.titulo ?? data.descricao.slice(0, 60),
+    prioridade: data.prioridade ?? 'media',
+    status:    'aberta',
     assignedTo: null,
     delegadoPor: null,
     instrucoes: null,

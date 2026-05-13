@@ -1,22 +1,26 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { getCondominiosByUser } from '@/lib/firebase/condominios';
 import FluxoCaixaContent from '../../../../../portfolio/FluxoCaixaContent';
 
 export default function FluxoCaixaPage() {
+  const { userData } = useAuthContext();
   const [condominios, setCondominios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!userData) return;
     const fetchCondominios = async () => {
       try {
-        const snap = await getDocs(collection(db, 'condominios'));
-        const data = snap.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+        const data = await getCondominiosByUser(
+          userData.role,
+          userData.condominioId,
+          userData.condominiosGeridos,
+        );
         setCondominios(data);
       } catch (error) {
         console.error('Erro ao buscar condomínios:', error);
@@ -24,9 +28,8 @@ export default function FluxoCaixaPage() {
         setLoading(false);
       }
     };
-
     fetchCondominios();
-  }, []);
+  }, [userData?.uid]);
 
   if (loading) {
     return (

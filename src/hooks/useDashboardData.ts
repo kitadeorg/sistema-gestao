@@ -74,21 +74,47 @@ export function useDashboardData(
       try {
         let targetCondoIds: string[] = [];
 
-        /* ================= ADMIN ================= */
-        if (userRole === 'admin') {
+        /* ================= SUPER ADMIN ================= */
+        if (userRole === 'super_admin') {
           const condosSnap = await getDocs(collection(db, 'condominios'));
-
-          const adminCondos = condosSnap.docs.map(d => ({
+          const superCondos = condosSnap.docs.map(d => ({
             id: d.id,
             nome: d.data().nome || 'Condomínio',
           }));
+          setCondominiosList([
+            { id: 'all', nome: 'Todos os Condomínios' },
+            ...superCondos,
+          ]);
+          targetCondoIds = superCondos.map(c => c.id);
+        }
+
+        /* ================= ADMIN ================= */
+        else if (userRole === 'admin') {
+          // admin scoped: usa condominiosGeridos tal como o gestor
+          // se não tiver nenhum, lista fica vazia (sem acesso a nada)
+          if (!condominiosGeridos?.length) {
+            setCondominiosList([{ id: 'all', nome: 'Todos os Condomínios' }]);
+            setLoading(false);
+            return;
+          }
+
+          const condoData = await Promise.all(
+            condominiosGeridos.map(async (id) => {
+              const snap = await getDoc(doc(db, 'condominios', id));
+              return snap.exists()
+                ? { id, nome: snap.data().nome || 'Condomínio' }
+                : null;
+            })
+          );
+
+          const lista = condoData.filter(Boolean) as CondominioData[];
 
           setCondominiosList([
             { id: 'all', nome: 'Todos os Condomínios' },
-            ...adminCondos,
+            ...lista,
           ]);
 
-          targetCondoIds = adminCondos.map(c => c.id);
+          targetCondoIds = condominiosGeridos;
         }
 
         /* ================= GESTOR ================= */

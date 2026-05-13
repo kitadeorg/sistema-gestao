@@ -56,7 +56,8 @@ export default function MoradorSidePanel({ condominioId, isOpen, onClose, onSucc
     setDocs([]);
 
     const fetchUnidades = async () => {
-      const q = query(collection(db, 'unidades'), where('condominioId', '==', condominioId), where('status', '==', 'vaga'));
+      // Mostra TODAS as unidades (vagas e ocupadas) — permite múltiplos moradores
+      const q = query(collection(db, 'unidades'), where('condominioId', '==', condominioId));
       const snap = await getDocs(q);
       setUnidades(snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })));
     };

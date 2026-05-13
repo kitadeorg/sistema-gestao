@@ -38,6 +38,7 @@ export default function DashboardPage() {
 
   // Router de Roles
   switch (userData.role) {
+    case 'super_admin':
     case 'admin':
       return <DashboardAdminContent />;
     case 'gestor':

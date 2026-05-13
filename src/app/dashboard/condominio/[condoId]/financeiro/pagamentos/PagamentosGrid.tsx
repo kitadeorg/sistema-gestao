@@ -4,6 +4,7 @@ import { Trash2, Pencil } from 'lucide-react';
 import { Pagamento } from './types';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { can } from '@/lib/permissions/permissionMatrix';
+import Pagination, { usePagination } from '@/components/ui/Pagination';
 
 interface Props {
   pagamentos: Pagamento[];
@@ -23,9 +24,13 @@ export default function PagamentosGrid({
   const podeEditar = role ? can(role, 'update', 'pagamento') : false;
   const podeExcluir = role ? can(role, 'delete', 'pagamento') : false;
 
+  // Paginação
+  const { paged, page, setPage, totalPages, totalItems, pageSize } = usePagination(pagamentos, 10);
+
   return (
-    <div className="bg-white border rounded-2xl shadow-sm divide-y">
-      {pagamentos.map(p => (
+    <>
+      <div className="bg-white border rounded-2xl shadow-sm divide-y">
+        {paged.map(p => (
         <div key={p.id} className="flex justify-between px-5 py-3 items-center">
           <div>
             <p className="font-medium">{p.descricao}</p>
@@ -54,5 +59,15 @@ export default function PagamentosGrid({
         </div>
       ))}
     </div>
+
+    {/* Paginação */}
+    <Pagination
+      currentPage={page}
+      totalPages={totalPages}
+      onPageChange={setPage}
+      itemsPerPage={pageSize}
+      totalItems={totalItems}
+    />
+  </>
   );
 }

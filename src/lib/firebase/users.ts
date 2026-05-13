@@ -46,7 +46,7 @@ export interface UserData {
   nome: string;
   email: string;
   telefone: string;
-  role: 'admin' | 'gestor' | 'sindico' | 'funcionario' | 'morador';
+  role: 'super_admin' | 'admin' | 'gestor' | 'sindico' | 'funcionario' | 'morador';
   status: 'ativo' | 'inativo' | 'pendente';
   avatarUrl?: string;
   condominioId?: string;
@@ -172,6 +172,35 @@ export async function getUsersByCondominio(condominioId: string): Promise<UserDa
   const mapa = new Map<string, UserData>();
   for (const d of [...snapDireto.docs, ...snapGestor.docs]) {
     mapa.set(d.id, { id: d.id, ...d.data() } as UserData);
+  }
+  return Array.from(mapa.values());
+}
+
+/**
+ * Retorna todos os utilizadores associados a um conjunto de condomínios.
+ * Usado pelo admin scoped para ver apenas os utilizadores dos seus condomínios.
+ * Inclui: utilizadores com condominioId em condoIds + gestores com condominiosGeridos sobrepostos.
+ */
+export async function getUsersByCondominios(condoIds: string[]): Promise<UserData[]> {
+  if (!condoIds.length) return [];
+
+  const lotes = [];
+  for (let i = 0; i < condoIds.length; i += 30) lotes.push(condoIds.slice(i, i + 30));
+
+  const [snapsDireto, snapsGestor] = await Promise.all([
+    Promise.all(lotes.map(lote =>
+      getDocs(query(usersCollection, where('condominioId', 'in', lote)))
+    )),
+    Promise.all(lotes.map(lote =>
+      getDocs(query(usersCollection, where('condominiosGeridos', 'array-contains-any', lote)))
+    )),
+  ]);
+
+  const mapa = new Map<string, UserData>();
+  for (const snap of [...snapsDireto, ...snapsGestor]) {
+    for (const d of snap.docs) {
+      mapa.set(d.id, { id: d.id, ...d.data() } as UserData);
+    }
   }
   return Array.from(mapa.values());
 }
@@ -346,12 +375,30 @@ export async function deleteUser(
 ): Promise<void> {
   const usuario = await getUserById(userId);
 
-  if (usuario?.role === 'admin') {
-    throw new Error('Não é permitido eliminar uma conta de Administrador.');
+  if (usuario?.role === 'admin' || usuario?.role === 'super_admin') {
+    throw new Error('Não é permitido eliminar uma conta de Administrador ou Super Administrador.');
   }
 
+  // Deletar do Firestore
   await deleteDoc(doc(db, 'usuarios', userId));
 
+  // Deletar do Firebase Authentication
+  try {
+    const response = await fetch('/api/delete-auth-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.warn('[deleteUser] Erro ao deletar do Authentication:', error);
+    }
+  } catch (err) {
+    console.warn('[deleteUser] Não foi possível deletar do Authentication:', err);
+  }
+
+  // Limpar pré-registro se existir
   if (usuario?.email) {
     const emailId = usuario.email.toLowerCase().trim();
     try {
@@ -361,6 +408,7 @@ export async function deleteUser(
     }
   }
 
+  // Log de auditoria
   if (actor) {
     void logAudit({
       actorId:      actor.actorId,
@@ -399,6 +447,104 @@ export async function removerCondominioDoGestor(
     condominiosGeridos: arrayRemove(condominioId),
     updatedAt: serverTimestamp(),
   });
+}
+
+// ─────────────────────────────────────────────
+// TABELA PIVOT user_condominium (leitura bidirecional)
+// ─────────────────────────────────────────────
+
+/**
+ * Retorna todos os gestores que têm um determinado condomínio
+ * no seu array `condominiosGeridos`.
+ *
+ * Equivale à query inversa da relação N:N:
+ *   "Dado um condomínio, quais são os seus gestores?"
+ */
+export async function getGestoresByCondominio(condominioId: string): Promise<UserData[]> {
+  const q = query(
+    usersCollection,
+    where('role', '==', 'gestor'),
+    where('condominiosGeridos', 'array-contains', condominioId),
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() })) as UserData[];
+}
+
+/**
+ * Retorna um mapa { condominioId → gestores[] } para um conjunto de condomínios.
+ * Útil para o Admin visualizar quem gere cada condomínio sem N queries separadas.
+ *
+ * Estratégia: uma única query busca todos os gestores que têm pelo menos
+ * um dos condominioIds no seu array. O agrupamento é feito no cliente.
+ */
+export async function getGestoresPorCondominios(
+  condominioIds: string[],
+): Promise<Map<string, UserData[]>> {
+  const resultado = new Map<string, UserData[]>(condominioIds.map((id) => [id, []]));
+
+  if (!condominioIds.length) return resultado;
+
+  // Divide em lotes de 30 (limite do Firestore para array-contains-any)
+  const lotes: string[][] = [];
+  for (let i = 0; i < condominioIds.length; i += 30) {
+    lotes.push(condominioIds.slice(i, i + 30));
+  }
+
+  const snapshots = await Promise.all(
+    lotes.map((lote) =>
+      getDocs(
+        query(
+          usersCollection,
+          where('role', '==', 'gestor'),
+          where('condominiosGeridos', 'array-contains-any', lote),
+        ),
+      ),
+    ),
+  );
+
+  const gestoresVistos = new Set<string>();
+  for (const snap of snapshots) {
+    for (const d of snap.docs) {
+      if (gestoresVistos.has(d.id)) continue;
+      gestoresVistos.add(d.id);
+
+      const gestor = { id: d.id, ...d.data() } as UserData;
+      const geridos: string[] = gestor.condominiosGeridos ?? [];
+
+      for (const condoId of geridos) {
+        if (resultado.has(condoId)) {
+          resultado.get(condoId)!.push(gestor);
+        }
+      }
+    }
+  }
+
+  return resultado;
+}
+
+/**
+ * Retorna um resumo da relação N:N para exibição no painel de Admin:
+ * lista de condomínios com os seus gestores associados.
+ */
+export interface CondominioComGestores {
+  condominioId: string;
+  gestores: Pick<UserData, 'id' | 'nome' | 'email' | 'status'>[];
+}
+
+export async function getRelacaoCondominiosGestores(
+  condominioIds: string[],
+): Promise<CondominioComGestores[]> {
+  const mapa = await getGestoresPorCondominios(condominioIds);
+
+  return condominioIds.map((condoId) => ({
+    condominioId: condoId,
+    gestores: (mapa.get(condoId) ?? []).map(({ id, nome, email, status }) => ({
+      id,
+      nome,
+      email,
+      status,
+    })),
+  }));
 }
 
 // ─────────────────────────────────────────────

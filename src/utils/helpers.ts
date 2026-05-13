@@ -6,11 +6,12 @@
  */
 export function getRoleLabel(role: string): string {
   const labels: Record<string, string> = {
-    admin: 'Super Administrador',
-    gestor: 'Gestor de Portfólio',
-    sindico: 'Síndico',
+    super_admin: 'Super Administrador',
+    admin:       'Administrador',
+    gestor:      'Gestor de Portfólio',
+    sindico:     'Síndico',
     funcionario: 'Funcionário',
-    morador: 'Morador',
+    morador:     'Morador',
   };
   return labels[role] || 'Perfil Desconhecido';
 }

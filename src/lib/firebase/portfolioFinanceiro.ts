@@ -4,24 +4,41 @@ import {
   getDocs,
   query,
   where,
-  Timestamp,
 } from 'firebase/firestore';
+import { getQueryCache, CACHE_TTL } from './queryCache';
 
 /* =====================================================
-   ✅ TYPES
+   TYPES
 ===================================================== */
 
 export interface PortfolioResumo {
-  receitaTotalMes: number;
-  receitaTotalGeral: number;
-  totalAtrasado: number;
-  totalPendente: number;
+  receitaTotalMes:        number;
+  receitaTotalGeral:      number;
+  totalAtrasado:          number;
+  totalPendente:          number;
   taxaMediaInadimplencia: number;
-  totalPagamentosMes: number;
+  totalPagamentosMes:     number;
+  // Novos campos
+  despesasTotalMes:       number;
+  margemLiquidaMes:       number;
+  margemPercentMes:       number;
 }
 
 /* =====================================================
-   ✅ CONSOLIDAÇÃO GLOBAL DO PORTFÓLIO
+   HELPERS
+===================================================== */
+
+const chunkArray = <T>(arr: T[], size: number): T[][] => {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+};
+
+/* =====================================================
+   CONSOLIDAÇÃO GLOBAL DO PORTFÓLIO
+   Lê de `quotas` (receita) e `despesas` (custos)
 ===================================================== */
 
 export const getPortfolioFinanceiro = async (
@@ -30,94 +47,94 @@ export const getPortfolioFinanceiro = async (
 
   if (!condominioIds.length) {
     return {
-      receitaTotalMes: 0,
-      receitaTotalGeral: 0,
-      totalAtrasado: 0,
-      totalPendente: 0,
+      receitaTotalMes:        0,
+      receitaTotalGeral:      0,
+      totalAtrasado:          0,
+      totalPendente:          0,
       taxaMediaInadimplencia: 0,
-      totalPagamentosMes: 0,
+      totalPagamentosMes:     0,
+      despesasTotalMes:       0,
+      margemLiquidaMes:       0,
+      margemPercentMes:       0,
     };
   }
 
-  const pagamentosRef = collection(db, 'pagamentos');
+  const cache    = getQueryCache();
+  const cacheKey = `portfolio-financeiro:${[...condominioIds].sort().join(',')}`;
 
-  // 🔹 Divide em blocos de 30 (limite Firestore)
-  const chunkArray = <T>(arr: T[], size: number): T[][] => {
-    const chunks: T[][] = [];
-    for (let i = 0; i < arr.length; i += size) {
-      chunks.push(arr.slice(i, i + size));
-    }
-    return chunks;
-  };
+  return cache.get(cacheKey, CACHE_TTL.QUOTAS, async () => {
+
+  const now       = new Date();
+  const inicioMes = new Date(now.getFullYear(), now.getMonth(), 1);
+  const fimMes    = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
   const chunks = chunkArray(condominioIds, 30);
 
-  const now = new Date();
-  const inicioMes = new Date(now.getFullYear(), now.getMonth(), 1);
-  const fimMes = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  // Buscar quotas e despesas em paralelo
+  const [quotaSnaps, despesaSnaps] = await Promise.all([
+    Promise.all(chunks.map(chunk =>
+      getDocs(query(collection(db, 'quotas'), where('condominioId', 'in', chunk)))
+    )),
+    Promise.all(chunks.map(chunk =>
+      getDocs(query(collection(db, 'despesas'), where('condominioId', 'in', chunk)))
+    )),
+  ]);
 
-  let receitaTotalMes = 0;
-  let receitaTotalGeral = 0;
-  let totalAtrasado = 0;
-  let totalPendente = 0;
+  const quotas   = quotaSnaps.flatMap(s => s.docs.map(d => d.data()));
+  const despesas = despesaSnaps.flatMap(s => s.docs.map(d => d.data()));
+
+  let receitaTotalMes    = 0;
+  let receitaTotalGeral  = 0;
+  let totalAtrasado      = 0;
+  let totalPendente      = 0;
   let totalPagamentosMes = 0;
+  let atrasadosMes       = 0;
+  let despesasTotalMes   = 0;
 
-  // 🔹 Buscar todos pagamentos por condomínio
-  const resultados = await Promise.all(
-    chunks.map((chunk) =>
-      getDocs(
-        query(
-          pagamentosRef,
-          where('condominioId', 'in', chunk)
-        )
-      )
-    )
-  );
+  // ── Quotas ──────────────────────────────────────────────────────
+  quotas.forEach(q => {
+    const valor  = q.valor ?? 0;
+    const pag    = q.dataPagamento?.toDate?.();
+    const status = q.status as string;
 
-  resultados.forEach((snapshot) => {
-    snapshot.docs.forEach((doc) => {
-      const data = doc.data();
-      const valor = data.valor ?? 0;
-
+    if (status === 'pago') {
       receitaTotalGeral += valor;
+    }
 
-      const dataVencimento = data.dataVencimento?.toDate?.();
-      const dataPagamento = data.dataPagamento?.toDate?.();
+    if (status === 'pago' && pag && pag >= inicioMes && pag <= fimMes) {
+      receitaTotalMes += valor;
+    }
 
-      // 🔹 Receita do mês (pagos no mês atual)
-      if (
-        data.status === 'pago' &&
-        dataPagamento &&
-        dataPagamento >= inicioMes &&
-        dataPagamento <= fimMes
-      ) {
-        receitaTotalMes += valor;
-      }
-
-      // 🔹 Pagamentos do mês (base para inadimplência)
-      if (
-        dataVencimento &&
-        dataVencimento >= inicioMes &&
-        dataVencimento <= fimMes
-      ) {
-        totalPagamentosMes++;
-      }
-
-      // 🔹 Pendentes
-      if (data.status === 'pendente') {
-        totalPendente += valor;
-      }
-
-      // 🔹 Atrasados
-      if (data.status === 'atrasado') {
+    const pertenceAoMes = q.mes === now.getMonth() + 1 && q.ano === now.getFullYear();
+    if (pertenceAoMes) {
+      totalPagamentosMes++;
+      if (status === 'atrasado') {
+        atrasadosMes++;
         totalAtrasado += valor;
       }
-    });
+      if (status === 'pendente') {
+        totalPendente += valor;
+      }
+    }
   });
+
+  // ── Despesas do mês ─────────────────────────────────────────────
+  despesas.forEach(d => {
+    const data = d.data?.toDate?.();
+    if (data && data >= inicioMes && data <= fimMes) {
+      despesasTotalMes += d.valor ?? 0;
+    }
+  });
+
+  // ── Margem ──────────────────────────────────────────────────────
+  const margemLiquidaMes  = receitaTotalMes - despesasTotalMes;
+  const margemPercentMes  = receitaTotalMes > 0
+    ? (margemLiquidaMes / receitaTotalMes) * 100
+    : 0;
 
   const taxaMediaInadimplencia =
     totalPagamentosMes > 0
-      ? (totalAtrasado / totalPagamentosMes) * 100
+      ? (atrasadosMes / totalPagamentosMes) * 100
       : 0;
 
   return {
@@ -127,5 +144,9 @@ export const getPortfolioFinanceiro = async (
     totalPendente,
     taxaMediaInadimplencia,
     totalPagamentosMes,
+    despesasTotalMes,
+    margemLiquidaMes,
+    margemPercentMes,
   };
+  }); // fim cache.get
 };

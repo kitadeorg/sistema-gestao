@@ -18,12 +18,16 @@ import {
   AlertTriangle,
   UserCheck,
   ShieldCheck,
+  Star,
+  Megaphone,
+  FolderOpen,
+  Vote,
 } from 'lucide-react';import NavSection from './NavSection';
 import NavItem from './NavItem';
 import ExpandableNavItem from './ExpandableNavItem';
 
 interface UserData {
-  role: 'admin' | 'gestor' | 'sindico' | 'funcionario' | 'morador';
+  role: 'super_admin' | 'admin' | 'gestor' | 'sindico' | 'funcionario' | 'morador';
 }
 
 interface NavItemConfig {
@@ -51,6 +55,22 @@ const hasValidCondo = (condoId?: string): condoId is string =>
 
 const navConfig: Record<string, (selectedCondo?: string) => NavConfig> = {
 
+  /* ══ SUPER ADMIN ══ */
+  super_admin: () => [
+    {
+      label: 'Plataforma',
+      items: [
+        { href: '/dashboard',               icon: BarChart3,   label: 'Geral',           activePaths: ['/dashboard'] },
+        { href: '/dashboard/usuarios',      icon: Users,       label: 'Utilizadores',    activePaths: ['/dashboard/usuarios'] },
+        { href: '/dashboard/condominios',   icon: Building2,   label: 'Condomínios',     activePaths: ['/dashboard/condominios'] },
+        { href: '/dashboard/relatorios',    icon: FileText,    label: 'Relatórios',      activePaths: ['/dashboard/relatorios'] },
+        { href: '/dashboard/financeiro/relatorio-comparativo', icon: BarChart3, label: 'Comparativo', activePaths: ['/dashboard/financeiro/relatorio-comparativo'] },
+        { href: '/dashboard/audit',         icon: ShieldCheck, label: 'Audit Log',       activePaths: ['/dashboard/audit'] },
+        { href: '/dashboard/configuracoes', icon: Settings,    label: 'Configurações',   activePaths: ['/dashboard/configuracoes'] },
+      ],
+    },
+  ],
+
   /* ══ ADMIN ══ */
   admin: () => [
     {
@@ -60,6 +80,7 @@ const navConfig: Record<string, (selectedCondo?: string) => NavConfig> = {
         { href: '/dashboard/usuarios',      icon: Users,       label: 'Usuários',      activePaths: ['/dashboard/usuarios'] },
         { href: '/dashboard/condominios',   icon: Building2,   label: 'Condomínios',   activePaths: ['/dashboard/condominios'] },
         { href: '/dashboard/relatorios',    icon: FileText,    label: 'Relatórios',    activePaths: ['/dashboard/relatorios'] },
+        { href: '/dashboard/financeiro/relatorio-comparativo', icon: BarChart3, label: 'Comparativo', activePaths: ['/dashboard/financeiro/relatorio-comparativo'] },
         { href: '/dashboard/audit',         icon: ShieldCheck, label: 'Audit Log',     activePaths: ['/dashboard/audit'] },
         { href: '/dashboard/configuracoes', icon: Settings,    label: 'Configurações', activePaths: ['/dashboard/configuracoes'] },
       ],
@@ -114,13 +135,22 @@ const navConfig: Record<string, (selectedCondo?: string) => NavConfig> = {
           label: 'Inadimplência',
           activePaths: [`/dashboard/condominio/${selectedCondo}/financeiro/inadimplencia`],
         },
+        {
+          href: '/dashboard/financeiro/relatorio-comparativo',
+          icon: BarChart3,
+          label: 'Comparativo',
+          activePaths: ['/dashboard/financeiro/relatorio-comparativo'],
+        },
       ] : [],
     },
     {
       label: 'Operacional',
       items: hasValidCondo(selectedCondo) ? [
-        { href: `/dashboard/condominio/${selectedCondo}/ocorrencias`, icon: Bell,   label: 'Ocorrências', activePaths: [`/dashboard/condominio/${selectedCondo}/ocorrencias`] },
-        { href: `/dashboard/condominio/${selectedCondo}/manutencao`,  icon: Wrench, label: 'Manutenção',  activePaths: [`/dashboard/condominio/${selectedCondo}/manutencao`] },
+        { href: `/dashboard/condominio/${selectedCondo}/ocorrencias`,  icon: Bell,      label: 'Ocorrências',  activePaths: [`/dashboard/condominio/${selectedCondo}/ocorrencias`]  },
+        { href: `/dashboard/condominio/${selectedCondo}/manutencao`,   icon: Wrench,    label: 'Manutenção',   activePaths: [`/dashboard/condominio/${selectedCondo}/manutencao`]   },
+        { href: `/dashboard/condominio/${selectedCondo}/comunicacao`,  icon: Megaphone, label: 'Comunicação',  activePaths: [`/dashboard/condominio/${selectedCondo}/comunicacao`]  },
+        { href: `/dashboard/condominio/${selectedCondo}/documentos`,   icon: FolderOpen,label: 'Documentos',   activePaths: [`/dashboard/condominio/${selectedCondo}/documentos`]   },
+        { href: `/dashboard/condominio/${selectedCondo}/assembleias`,  icon: Vote,      label: 'Assembleias',  activePaths: [`/dashboard/condominio/${selectedCondo}/assembleias`]  },
       ] : [],
     },
     {
@@ -156,8 +186,12 @@ const navConfig: Record<string, (selectedCondo?: string) => NavConfig> = {
       {
         label: 'Operacional',
         items: [
-          { href: `${base}/ocorrencias`, icon: Bell,   label: 'Ocorrências', activePaths: [`${base}/ocorrencias`] },
-          { href: `${base}/manutencao`,  icon: Wrench, label: 'Manutenção',  activePaths: [`${base}/manutencao`] },
+          { href: `${base}/ocorrencias`, icon: Bell,       label: 'Ocorrências', activePaths: [`${base}/ocorrencias`] },
+          { href: `${base}/manutencao`,  icon: Wrench,     label: 'Manutenção',  activePaths: [`${base}/manutencao`]  },
+          { href: `${base}/satisfacao`,  icon: Star,       label: 'Satisfação',  activePaths: [`${base}/satisfacao`]  },
+          { href: `${base}/comunicacao`, icon: Megaphone,  label: 'Comunicação', activePaths: [`${base}/comunicacao`] },
+          { href: `${base}/documentos`,  icon: FolderOpen, label: 'Documentos',  activePaths: [`${base}/documentos`]  },
+          { href: `${base}/assembleias`, icon: Vote,       label: 'Assembleias', activePaths: [`${base}/assembleias`] },
         ],
       },
       {
@@ -205,11 +239,14 @@ const navConfig: Record<string, (selectedCondo?: string) => NavConfig> = {
       {
         label: 'Meu Apartamento',
         items: [
-          { href: '/dashboard',                   icon: LayoutDashboard, label: 'Painel',          activePaths: ['/dashboard'] },
-          { href: `${base}/morador/minhas-quotas`,icon: Receipt,         label: 'Minhas Quotas',   activePaths: [`${base}/morador/minhas-quotas`] },
-          { href: `${base}/morador/pagamentos`,   icon: DollarSign,      label: 'Meus Pagamentos', activePaths: [`${base}/morador/pagamentos`] },
-          { href: `${base}/morador/ocorrencias`,  icon: Bell,            label: 'Ocorrências',     activePaths: [`${base}/morador/ocorrencias`] },
-          { href: `${base}/morador/visitantes`,   icon: Users,           label: 'Visitantes',      activePaths: [`${base}/morador/visitantes`] },
+          { href: '/dashboard',                    icon: LayoutDashboard, label: 'Painel',          activePaths: ['/dashboard']                          },
+          { href: `${base}/morador/minhas-quotas`, icon: Receipt,         label: 'Minhas Quotas',   activePaths: [`${base}/morador/minhas-quotas`]        },
+          { href: `${base}/morador/pagamentos`,    icon: DollarSign,      label: 'Meus Pagamentos', activePaths: [`${base}/morador/pagamentos`]           },
+          { href: `${base}/morador/ocorrencias`,   icon: Bell,            label: 'Ocorrências',     activePaths: [`${base}/morador/ocorrencias`]          },
+          { href: `${base}/morador/visitantes`,    icon: Users,           label: 'Visitantes',      activePaths: [`${base}/morador/visitantes`]           },
+          { href: `${base}/comunicacao`,           icon: Megaphone,       label: 'Comunicados',     activePaths: [`${base}/comunicacao`]                  },
+          { href: `${base}/documentos`,            icon: FolderOpen,      label: 'Documentos',      activePaths: [`${base}/documentos`]                   },
+          { href: `${base}/assembleias`,           icon: Vote,            label: 'Assembleias',     activePaths: [`${base}/assembleias`]                  },
         ],
       },
       {

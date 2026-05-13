@@ -4,106 +4,136 @@ import {
   getDocs,
   query,
   where,
-  Timestamp,
 } from 'firebase/firestore';
+import { getSatisfacaoScore } from './satisfacao';
+import { getQueryCache, CACHE_TTL } from './queryCache';
 
-/* =====================================================
-   ✅ TYPES
-===================================================== */
+// ─────────────────────────────────────────────
+// TIPOS
+// ─────────────────────────────────────────────
 
 export interface CondoPerformance {
   condominioId: string;
+  // Financeiro
   receitaMes: number;
   totalAtrasado: number;
   taxaInadimplencia: number;
+  // Manutenção
+  ocorrenciasAbertas: number;
+  ocorrenciasConcluidas: number;
+  taxaResolucao: number;
+  // Satisfação
+  scoreSatisfacao: number;
+  totalAvaliacoes: number;
+  // Score composto
   performanceScore: number;
+  scoreFinanceiro: number;
+  scoreManutencao: number;
 }
 
-/* =====================================================
-   ✅ RANKING DE CONDOMÍNIOS
-===================================================== */
+// ─────────────────────────────────────────────
+// RANKING
+// ─────────────────────────────────────────────
 
 export const getPortfolioRanking = async (
   condominios: { id: string; nome?: string }[]
 ): Promise<CondoPerformance[]> => {
-
   if (!condominios.length) return [];
+
+  const cache    = getQueryCache();
+  const cacheKey = `portfolio-ranking:${condominios.map(c => c.id).sort().join(',')}`;
+
+  return cache.get(cacheKey, CACHE_TTL.RANKING, async () => {
 
   const now = new Date();
   const inicioMes = new Date(now.getFullYear(), now.getMonth(), 1);
-  const fimMes = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+  const fimMes    = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
 
-  const pagamentosRef = collection(db, 'pagamentos');
+  // Buscar quotas, ocorrências abertas e concluídas em paralelo por condomínio
+  const resultados: CondoPerformance[] = await Promise.all(
+    condominios.map(async condo => {
+      const [quotasSnap, ocorrAbertas, ocorrConcluidas, scoreSatisfacao] = await Promise.all([
+        getDocs(query(
+          collection(db, 'quotas'),
+          where('condominioId', '==', condo.id),
+        )),
+        getDocs(query(
+          collection(db, 'ocorrencias'),
+          where('condominioId', '==', condo.id),
+          where('status', '==', 'aberta'),
+        )),
+        getDocs(query(
+          collection(db, 'ocorrencias'),
+          where('condominioId', '==', condo.id),
+          where('status', 'in', ['concluida', 'encerrada']),
+        )),
+        getSatisfacaoScore(condo.id),
+      ]);
 
-  const resultados: CondoPerformance[] = [];
+      // ── Financeiro ──────────────────────────────────────────────
+      let receitaMes    = 0;
+      let totalAtrasado = 0;
+      let totalMes      = 0;
+      let atrasadosMes  = 0;
 
-  for (const condo of condominios) {
+      quotasSnap.docs.forEach(doc => {
+        const d      = doc.data();
+        const pag    = d.dataPagamento?.toDate?.();
+        const status = d.status as string;
 
-    const pagamentosSnap = await getDocs(
-      query(
-        pagamentosRef,
-        where('condominioId', '==', condo.id)
-      )
-    );
-
-    let receitaMes = 0;
-    let totalAtrasado = 0;
-    let totalPagamentosMes = 0;
-    let atrasadosMes = 0;
-
-    pagamentosSnap.docs.forEach((doc) => {
-      const data = doc.data();
-      const valor = data.valor ?? 0;
-
-      const dataVencimento = data.dataVencimento?.toDate?.();
-      const dataPagamento = data.dataPagamento?.toDate?.();
-
-      // Receita do mês (pagos neste mês)
-      if (
-        data.status === 'pago' &&
-        dataPagamento &&
-        dataPagamento >= inicioMes &&
-        dataPagamento <= fimMes
-      ) {
-        receitaMes += valor;
-      }
-
-      // Base para inadimplência
-      if (
-        dataVencimento &&
-        dataVencimento >= inicioMes &&
-        dataVencimento <= fimMes
-      ) {
-        totalPagamentosMes++;
-
-        if (data.status === 'atrasado') {
-          atrasadosMes++;
-          totalAtrasado += valor;
+        // Receita do mês — quotas pagas com dataPagamento no mês corrente
+        if (status === 'pago' && pag && pag >= inicioMes && pag <= fimMes) {
+          receitaMes += d.valor ?? 0;
         }
-      }
-    });
 
-    const taxaInadimplencia =
-      totalPagamentosMes > 0
-        ? (atrasadosMes / totalPagamentosMes) * 100
-        : 0;
+        // Quotas do mês corrente (para calcular inadimplência)
+        const pertenceAoMes = d.mes === now.getMonth() + 1 && d.ano === now.getFullYear();
+        if (pertenceAoMes) {
+          totalMes++;
+          if (status === 'atrasado') {
+            atrasadosMes++;
+            totalAtrasado += d.valor ?? 0;
+          }
+        }
+      });
 
-    // 🔥 Fórmula simples de performance
-    const performanceScore =
-      receitaMes * 0.6 +
-      (100 - taxaInadimplencia) * 1000 * 0.4;
+      const taxaInadimplencia = totalMes > 0 ? (atrasadosMes / totalMes) * 100 : 0;
 
-    resultados.push({
-      condominioId: condo.id,
-      receitaMes,
-      totalAtrasado,
-      taxaInadimplencia,
-      performanceScore,
-    });
-  }
+      // ── Manutenção ──────────────────────────────────────────────
+      const nAbertas    = ocorrAbertas.size;
+      const nConcluidas = ocorrConcluidas.size;
+      const totalOcorr  = nAbertas + nConcluidas;
+      const taxaResolucao = totalOcorr > 0 ? (nConcluidas / totalOcorr) * 100 : 100;
 
-  // Ordena do melhor para o pior
-  resultados.sort((a, b) => b.performanceScore - a.performanceScore);
+      // ── Scores normalizados (0–100) ─────────────────────────────
+      // Score financeiro: 100 = sem inadimplência, 0 = 100% inadimplência
+      const scoreFinanceiro = Math.max(0, 100 - taxaInadimplencia);
 
-  return resultados;
+      // Score manutenção: 100 = todas resolvidas e sem abertas, penaliza abertas
+      const penalizacaoAbertas = Math.min(nAbertas * 5, 50);
+      const scoreManutencao = Math.max(0, taxaResolucao - penalizacaoAbertas);
+
+      // Score composto: 50% financeiro + 30% manutenção + 20% satisfação
+      const performanceScore = scoreFinanceiro * 0.5 + scoreManutencao * 0.3 + scoreSatisfacao * 0.2;
+
+      return {
+        condominioId:          condo.id,
+        receitaMes,
+        totalAtrasado,
+        taxaInadimplencia,
+        ocorrenciasAbertas:    nAbertas,
+        ocorrenciasConcluidas: nConcluidas,
+        taxaResolucao,
+        scoreSatisfacao,
+        totalAvaliacoes:       0, // preenchido pelo resumo se necessário
+        performanceScore,
+        scoreFinanceiro,
+        scoreManutencao,
+      };
+    })
+  );
+
+  // Ordenar do melhor para o pior
+  return resultados.sort((a, b) => b.performanceScore - a.performanceScore);
+  }); // fim cache.get
 };

@@ -3,12 +3,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
-import { delegarOcorrencia, encerrarOcorrencia } from '@/lib/firebase/ocorrencias';
+import { delegarOcorrencia, encerrarOcorrencia, getComentarios, addComentario, type Comentario } from '@/lib/firebase/ocorrencias';
 import { useAuthContext } from '@/contexts/AuthContext';
 import {
-  Bell, Search, Building2, DoorOpen, User, Calendar,
+  Bell, Search, Building2, User, Calendar,
   AlertTriangle, Clock, CheckCircle2, XCircle, Loader2,
-  X, UserCheck, RefreshCw, Filter,
+  X, UserCheck, RefreshCw, MessageSquare, Paperclip, Send,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -28,6 +28,7 @@ interface Ocorrencia {
   instrucoes?: string;
   assignedTo?: string;
   assignedNome?: string;
+  ultimoComentario?: string;
   createdAt?: any;
   condominioId: string;
 }
@@ -68,16 +69,224 @@ function PrioridadeBadge({ prioridade }: { prioridade: string }) {
   );
 }
 
+// ─── Painel de Detalhe + Comentários ─────────────────────────────────────────
+
+function OcorrenciaDetalhePanel({
+  ocorrencia,
+  onClose,
+}: {
+  ocorrencia: Ocorrencia;
+  onClose: () => void;
+}) {
+  const { userData } = useAuthContext();
+  const [comentarios, setComentarios] = useState<Comentario[]>([]);
+  const [loadingComents, setLoadingComents] = useState(true);
+  const [texto, setTexto] = useState('');
+  const [sending, setSending] = useState(false);
+  const [uploadingAnexo, setUploadingAnexo] = useState(false);
+  const [anexosPendentes, setAnexosPendentes] = useState<{ url: string; nome: string; tipo: string }[]>([]);
+
+  const fetchComentarios = useCallback(async () => {
+    setLoadingComents(true);
+    try {
+      const data = await getComentarios(ocorrencia.id);
+      setComentarios(data);
+    } catch (e) { console.error(e); }
+    finally { setLoadingComents(false); }
+  }, [ocorrencia.id]);
+
+  useEffect(() => { fetchComentarios(); }, [fetchComentarios]);
+
+  const handleAnexo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) { toast.error('Ficheiro máx. 10MB.'); return; }
+    setUploadingAnexo(true);
+    try {
+      const res = await fetch('/api/upload-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: file.name, fileType: file.type }),
+      });
+      if (!res.ok) throw new Error('Falha no upload.');
+      const { uploadUrl, publicUrl } = await res.json();
+      await fetch(uploadUrl, { method: 'PUT', body: file, headers: { 'Content-Type': file.type } });
+      setAnexosPendentes(prev => [...prev, { url: publicUrl, nome: file.name, tipo: file.type }]);
+      toast.success('Ficheiro anexado.');
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Erro no upload.');
+    } finally {
+      setUploadingAnexo(false);
+      e.target.value = '';
+    }
+  };
+
+  const handleEnviar = async () => {
+    if (!texto.trim() && anexosPendentes.length === 0) return;
+    if (!userData) return;
+    setSending(true);
+    try {
+      await addComentario(
+        ocorrencia.id,
+        { id: userData.uid, nome: userData.nome, role: userData.role },
+        texto.trim() || '(anexo)',
+        anexosPendentes.length > 0 ? anexosPendentes : undefined,
+      );
+      setTexto('');
+      setAnexosPendentes([]);
+      fetchComentarios();
+    } catch (e: any) {
+      toast.error(e?.message ?? 'Erro ao enviar.');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const formatTs = (ts: any) => {
+    if (!ts) return '';
+    const d = ts.toDate ? ts.toDate() : new Date(ts);
+    return d.toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const ROLE_LABEL: Record<string, string> = {
+    morador: 'Morador', sindico: 'Síndico', funcionario: 'Funcionário',
+    gestor: 'Gestor', admin: 'Admin', super_admin: 'Admin',
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
+      <aside className="fixed right-0 top-0 h-full w-full sm:max-w-lg bg-white shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-100 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="p-2 bg-orange-50 rounded-xl shrink-0"><MessageSquare size={18} className="text-orange-500" /></div>
+            <div className="min-w-0">
+              <h2 className="text-sm font-bold text-zinc-900 truncate">{ocorrencia.titulo}</h2>
+              <p className="text-xs text-zinc-500">Comentários e anexos</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-zinc-100 text-zinc-400 shrink-0"><X size={18} /></button>
+        </div>
+
+        {/* Descrição da ocorrência */}
+        {ocorrencia.descricao && (
+          <div className="px-5 py-3 bg-zinc-50 border-b border-zinc-100 shrink-0">
+            <p className="text-xs text-zinc-600 leading-relaxed">{ocorrencia.descricao}</p>
+          </div>
+        )}
+
+        {/* Lista de comentários */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+          {loadingComents ? (
+            <div className="flex justify-center py-8"><Loader2 size={20} className="animate-spin text-orange-400" /></div>
+          ) : comentarios.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-zinc-400">
+              <MessageSquare size={32} className="mb-2 opacity-20" />
+              <p className="text-sm">Nenhum comentário ainda</p>
+              <p className="text-xs mt-1">Sê o primeiro a comentar</p>
+            </div>
+          ) : (
+            comentarios.map(c => {
+              const isMe = c.autorId === userData?.uid;
+              return (
+                <div key={c.id} className={cn('flex gap-3', isMe && 'flex-row-reverse')}>
+                  <div className={cn(
+                    'w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0',
+                    isMe ? 'bg-orange-100 text-orange-600' : 'bg-zinc-100 text-zinc-600',
+                  )}>
+                    {c.autorNome.charAt(0).toUpperCase()}
+                  </div>
+                  <div className={cn('max-w-[75%] space-y-1', isMe && 'items-end flex flex-col')}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-zinc-700">{c.autorNome}</span>
+                      <span className="text-xs text-zinc-400">{ROLE_LABEL[c.autorRole] ?? c.autorRole}</span>
+                      <span className="text-xs text-zinc-300">{formatTs(c.createdAt)}</span>
+                    </div>
+                    <div className={cn(
+                      'px-3 py-2 rounded-2xl text-sm leading-relaxed',
+                      isMe ? 'bg-orange-500 text-white rounded-tr-sm' : 'bg-zinc-100 text-zinc-800 rounded-tl-sm',
+                    )}>
+                      {c.texto !== '(anexo)' && <p>{c.texto}</p>}
+                      {c.anexos && c.anexos.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {c.anexos.map((a, i) => (
+                            <a key={i} href={a.url} target="_blank" rel="noopener noreferrer"
+                              className={cn(
+                                'flex items-center gap-1.5 text-xs underline',
+                                isMe ? 'text-orange-100' : 'text-blue-600',
+                              )}>
+                              <Paperclip size={11} />{a.nome}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Input de comentário */}
+        <div className="px-5 py-4 border-t border-zinc-100 space-y-3 shrink-0">
+          {/* Anexos pendentes */}
+          {anexosPendentes.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {anexosPendentes.map((a, i) => (
+                <div key={i} className="flex items-center gap-1.5 px-2 py-1 bg-zinc-100 rounded-lg text-xs text-zinc-700">
+                  <Paperclip size={11} />
+                  <span className="max-w-[120px] truncate">{a.nome}</span>
+                  <button onClick={() => setAnexosPendentes(prev => prev.filter((_, idx) => idx !== i))} className="text-zinc-400 hover:text-red-500">
+                    <X size={11} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <label className={cn(
+              'p-2.5 rounded-xl border border-zinc-200 hover:bg-zinc-50 transition-colors cursor-pointer shrink-0',
+              uploadingAnexo && 'opacity-50 cursor-not-allowed',
+            )}>
+              {uploadingAnexo ? <Loader2 size={16} className="animate-spin text-zinc-400" /> : <Paperclip size={16} className="text-zinc-400" />}
+              <input type="file" className="hidden" onChange={handleAnexo} disabled={uploadingAnexo} accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.mp4,.mov" />
+            </label>
+            <input
+              type="text"
+              value={texto}
+              onChange={e => setTexto(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleEnviar(); } }}
+              placeholder="Escreve um comentário..."
+              className="flex-1 px-3 py-2.5 text-sm border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white"
+            />
+            <button
+              onClick={handleEnviar}
+              disabled={sending || (!texto.trim() && anexosPendentes.length === 0)}
+              className="p-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white transition-colors disabled:opacity-50 shrink-0"
+            >
+              {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+            </button>
+          </div>
+        </div>
+      </aside>
+    </>
+  );
+}
+
 // ─── Card de Ocorrência ───────────────────────────────────────────────────────
 
 function OcorrenciaCard({
   o,
   onDelegar,
   onEncerrar,
+  onVerComentarios,
 }: {
   o: Ocorrencia;
   onDelegar: (o: Ocorrencia) => void;
   onEncerrar: (id: string) => void;
+  onVerComentarios: (o: Ocorrencia) => void;
 }) {
   const cfg = PRIORIDADE_CFG[o.prioridade] ?? PRIORIDADE_CFG.baixa;
   const dataFormatada = o.createdAt?.toDate
@@ -142,7 +351,17 @@ function OcorrenciaCard({
         </div>
 
         {/* Acções */}
-        <div className="pt-2 border-t border-zinc-100 flex gap-2">
+        <div className="pt-2 border-t border-zinc-100 flex gap-2 flex-wrap">
+          {/* Comentários */}
+          <button
+            onClick={() => onVerComentarios(o)}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold border border-zinc-200 text-zinc-600 hover:bg-zinc-50 rounded-xl transition-colors"
+          >
+            <MessageSquare size={13} />
+            Comentários
+            {o.ultimoComentario && <span className="w-2 h-2 bg-orange-400 rounded-full" />}
+          </button>
+
           {(o.status === 'aberta' || o.status === 'delegada') && (
             <button
               onClick={() => onDelegar(o)}
@@ -367,6 +586,7 @@ export default function OcorrenciasSindicoContent({ condoId }: Props) {
   const [search, setSearch]             = useState('');
   const [filtro, setFiltro]             = useState<StatusFiltro>('todas');
   const [selectedOcorrencia, setSelectedOcorrencia] = useState<Ocorrencia | null>(null);
+  const [detalheOcorrencia, setDetalheOcorrencia]   = useState<Ocorrencia | null>(null);
 
   const fetchOcorrencias = useCallback(async () => {
     if (!condoId) return;
@@ -520,6 +740,7 @@ export default function OcorrenciasSindicoContent({ condoId }: Props) {
                 o={o}
                 onDelegar={setSelectedOcorrencia}
                 onEncerrar={handleEncerrar}
+                onVerComentarios={setDetalheOcorrencia}
               />
             ))}
           </div>
@@ -531,6 +752,12 @@ export default function OcorrenciasSindicoContent({ condoId }: Props) {
           ocorrencia={selectedOcorrencia}
           onClose={() => setSelectedOcorrencia(null)}
           onSuccess={() => { setSelectedOcorrencia(null); fetchOcorrencias(); }}
+        />
+      )}
+      {detalheOcorrencia && (
+        <OcorrenciaDetalhePanel
+          ocorrencia={detalheOcorrencia}
+          onClose={() => setDetalheOcorrencia(null)}
         />
       )}
     </>

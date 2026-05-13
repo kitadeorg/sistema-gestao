@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Plus, Search, RefreshCw, ShieldAlert, PhoneCall } from 'lucide-react';
 import {
   getUsers,
+  getUsersByCondominios,
   deleteUser,
   toggleUserStatus,
   type UserData,
@@ -19,10 +20,12 @@ type StatusFilter      = UserData['status'] | 'todos';
 type EmailStatusFilter = 'todos' | 'contactar'; // 'contactar' = bounce + spam + erro
 
 export default function UsuariosContent() {
-  const { user, userData, loading: authLoading } = useAuthContext();
+  const { user, userData, loading: authLoading, condominiosAcessiveis, isSuperAdmin } = useAuthContext();
 
   const canAccess =
-    userData?.role === 'admin' || userData?.role === 'gestor';
+    userData?.role === 'admin' ||
+    userData?.role === 'super_admin' ||
+    userData?.role === 'gestor';
 
   const [users, setUsers]                         = useState<UserData[]>([]);
   const [loading, setLoading]                     = useState(false);
@@ -39,14 +42,28 @@ export default function UsuariosContent() {
     if (!canAccess) return;
     setLoading(true);
     try {
-      const data = await getUsers();
+      let data: UserData[] = [];
+
+      if (isSuperAdmin) {
+        // super_admin vê todos
+        data = await getUsers();
+      } else if (userData?.role === 'admin' && condominiosAcessiveis.length > 0) {
+        // admin scoped — utilizadores dos seus condomínios
+        data = await getUsersByCondominios(condominiosAcessiveis);
+      } else if (userData?.role === 'gestor' && condominiosAcessiveis.length > 0) {
+        // gestor — só utilizadores dos seus condomínios
+        data = await getUsersByCondominios(condominiosAcessiveis);
+      } else {
+        data = [];
+      }
+
       setUsers(data);
     } catch (err) {
       console.error('Erro ao carregar utilizadores:', err);
     } finally {
       setLoading(false);
     }
-  }, [canAccess]);
+  }, [canAccess, isSuperAdmin, userData?.role, condominiosAcessiveis]);
 
   useEffect(() => {
     if (!authLoading && user && userData) {
@@ -62,7 +79,10 @@ export default function UsuariosContent() {
 
   const EMAIL_STATUS_ALERTA = ['email_bounce', 'email_spam', 'email_erro'];
 
+  // super_admin nunca aparece na tabela para nenhum utilizador
   const filteredUsers = users.filter((u) => {
+    if (u.role === 'super_admin') return false; // nunca visível na tabela
+
     const matchesSearch =
       searchTerm === '' ||
       u.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -85,10 +105,15 @@ export default function UsuariosContent() {
   };
 
   const handleDelete = async (userId: string) => {
-    // Encontrar o utilizador para verificar o role
+    // Só super_admin pode eliminar utilizadores
+    if (!isSuperAdmin) {
+      toast.error('Apenas o Super Administrador pode eliminar utilizadores.');
+      return;
+    }
+
     const target = users.find(u => u.id === userId);
-    if (target?.role === 'admin') {
-      toast.error('Não é permitido eliminar uma conta de Administrador.');
+    if (target?.role === 'super_admin') {
+      toast.error('Não é permitido eliminar uma conta de Super Administrador.');
       return;
     }
 
@@ -193,13 +218,13 @@ export default function UsuariosContent() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">Usuários</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900"> Usuários</h1>
           <p className="text-sm text-zinc-500 mt-1">
             Gerir utilizadores da plataforma
           </p>
         </div>
 
-        {userData?.role === 'admin' && (
+        {(userData?.role === 'admin' || userData?.role === 'super_admin') && (
           <button
             onClick={() => {
               setEditingUser(null);

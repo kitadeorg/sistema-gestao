@@ -67,8 +67,15 @@ export function useCondominioAtivo(): UseCondominioAtivoReturn {
         let lista: Condominio[] = [];
 
         if (isAdmin) {
-          // Admin vê todos
-          lista = await getCondominios();
+          if (userData?.role === 'super_admin') {
+            // super_admin vê todos os condomínios
+            lista = await getCondominios();
+          } else {
+            // admin scoped — só os seus
+            lista = condominiosAcessiveis.length > 0
+              ? await getCondominiosByIds(condominiosAcessiveis)
+              : [];
+          }
         } else if (condominiosAcessiveis.length > 0) {
           // Gestor/síndico/etc: só os seus
           lista = await getCondominiosByIds(condominiosAcessiveis);

@@ -55,7 +55,13 @@ export type AuditAccao =
   | 'morador_eliminado'
   // Visitantes
   | 'visitante_registado'
-  | 'visitante_saida';
+  | 'visitante_saida'
+  // Despesas
+  | 'despesa_registada'
+  | 'despesa_editada'
+  | 'despesa_eliminada'
+  // Pagamentos
+  | 'pagamento_parcial';
 
 export type AuditCategoria =
   | 'financeiro'
@@ -130,6 +136,10 @@ export const CATEGORIA_MAP: Record<AuditAccao, AuditCategoria> = {
   morador_eliminado:       'moradores',
   visitante_registado:     'visitantes',
   visitante_saida:         'visitantes',
+  despesa_registada:       'financeiro',
+  despesa_editada:         'financeiro',
+  despesa_eliminada:       'financeiro',
+  pagamento_parcial:       'financeiro',
 };
 
 // ─────────────────────────────────────────────

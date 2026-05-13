@@ -8,12 +8,14 @@ import { db } from '@/lib/firebase/firebase';
 import type { Condominio, CondominioFormData } from '@/types';
 import { createCondominio, updateCondominio } from '@/lib/firebase/condominios';
 import { cn } from '@/lib/utils';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 
 // --- Interfaces, Tipos e Variantes de Animação ---
 interface SidePanelProps {
     isOpen: boolean;
     onClose: () => void;
-    onSuccess: () => void;
+    onSuccess: (wasCreated?: boolean) => void;
     condominioData: Condominio | null;
 }
 type FormDataType = {
@@ -30,6 +32,7 @@ const panelVariants = { visible: { x: 0 }, hidden: { x: '100%' }};
 
 // --- Componente Principal ---
 const CondominioSidePanel: React.FC<SidePanelProps> = ({ isOpen, onClose, onSuccess, condominioData }) => {
+    const { userData } = useAuthContext();
     const initialFormState: FormDataType = { nome: '', cnpj: '', rua: '', numero: '', bairro: '', cidade: '', provincia: '' };
     const [formData, setFormData] = useState<FormDataType>(initialFormState);
     const [isSaving, setIsSaving] = useState(false);
@@ -113,12 +116,21 @@ const CondominioSidePanel: React.FC<SidePanelProps> = ({ isOpen, onClose, onSucc
             
             if (isEditMode && condominioData) {
                 await updateCondominio(condominioData.id, dataToSubmit);
+                toast.success('Condomínio actualizado com sucesso.');
+                onSuccess(false);
             } else {
-                await createCondominio(dataToSubmit);
+                const actor = userData ? {
+                    actorId:   userData.uid,
+                    actorNome: userData.nome,
+                    actorRole: userData.role,
+                } : undefined;
+                await createCondominio(dataToSubmit, actor);
+                toast.success('Condomínio criado com sucesso.');
+                onSuccess(true);
             }
-            onSuccess();
         } catch (error) {
             console.error("Falha ao salvar condomínio:", error);
+            toast.error('Erro ao guardar condomínio. Tente novamente.');
         } finally {
             setIsSaving(false);
         }

@@ -8,6 +8,7 @@ import {
   UserCheck, Plus, Search, Phone, Mail, MoreVertical,
 } from 'lucide-react';
 import FuncionarioSidePanel from './FuncionarioSidePanel';
+import Pagination, { usePagination } from '@/components/ui/Pagination';
 
 /* ─────────────────────────────────────────────────────────────────────────────
    INTERFACES
@@ -49,17 +50,15 @@ function StatusBadge({ status }: { status: Funcionario['status'] }) {
    CARD
 ───────────────────────────────────────────────────────────────────────────── */
 
-function FuncionarioCard({ funcionario }: { funcionario: Funcionario }) {
+function FuncionarioCard({ funcionario, onEdit }: { funcionario: Funcionario; onEdit: (f: Funcionario) => void }) {
+  const [menuOpen, setMenuOpen] = useState(false);
+
   return (
     <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm flex flex-col gap-4 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           {funcionario.avatarUrl ? (
-            <img
-              src={funcionario.avatarUrl}
-              alt={funcionario.nome}
-              className="w-11 h-11 rounded-full object-cover"
-            />
+            <img src={funcionario.avatarUrl} alt={funcionario.nome} className="w-11 h-11 rounded-full object-cover" />
           ) : (
             <div className="w-11 h-11 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-semibold text-sm">
               {getInitials(funcionario.nome)}
@@ -70,9 +69,27 @@ function FuncionarioCard({ funcionario }: { funcionario: Funcionario }) {
             <p className="text-xs text-zinc-500">{funcionario.cargo ?? 'Sem cargo definido'}</p>
           </div>
         </div>
-        <button className="p-1.5 rounded-lg hover:bg-zinc-100 transition-colors text-zinc-400">
-          <MoreVertical size={16} />
-        </button>
+        <div className="relative">
+          <button
+            onClick={() => setMenuOpen(o => !o)}
+            className="p-1.5 rounded-lg hover:bg-zinc-100 transition-colors text-zinc-400"
+          >
+            <MoreVertical size={16} />
+          </button>
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+              <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-zinc-200 rounded-xl shadow-lg overflow-hidden w-36">
+                <button
+                  onClick={() => { onEdit(funcionario); setMenuOpen(false); }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-zinc-700 hover:bg-zinc-50 transition-colors"
+                >
+                  Editar
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       <StatusBadge status={funcionario.status} />
@@ -125,6 +142,7 @@ export default function EquipePage() {
   const [loading,      setLoading]      = useState(true);
   const [search,       setSearch]       = useState('');
   const [showPanel,    setShowPanel]    = useState(false);
+  const [editingFuncionario, setEditingFuncionario] = useState<Funcionario | null>(null);
 
   /* ── fetch ── */
   const fetchEquipe = useCallback(async () => {
@@ -157,6 +175,9 @@ export default function EquipePage() {
     f.email.toLowerCase().includes(search.toLowerCase()) ||
     (f.cargo ?? '').toLowerCase().includes(search.toLowerCase())
   );
+
+  /* ── paginação ── */
+  const { paged, page, setPage, totalPages, totalItems, pageSize } = usePagination(filtered, 12);
 
   /* ── contadores ── */
   const totalAtivos   = funcionarios.filter((f) => f.status === 'ativo').length;
@@ -228,11 +249,22 @@ export default function EquipePage() {
             <p className="text-sm">Nenhum resultado para "{search}"</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filtered.map((f) => (
-              <FuncionarioCard key={f.id} funcionario={f} />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {paged.map((f) => (
+                <FuncionarioCard key={f.id} funcionario={f} onEdit={(func) => { setEditingFuncionario(func); setShowPanel(true); }} />
+              ))}
+            </div>
+
+            {/* Paginação */}
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              itemsPerPage={pageSize}
+              totalItems={totalItems}
+            />
+          </>
         )}
 
       </main>
@@ -241,10 +273,12 @@ export default function EquipePage() {
       {showPanel && (
         <FuncionarioSidePanel
           condoId={condoId}
-          onClose={() => setShowPanel(false)}
+          funcionario={editingFuncionario}
+          onClose={() => { setShowPanel(false); setEditingFuncionario(null); }}
           onSuccess={() => {
             setShowPanel(false);
-            fetchEquipe(); // ← re-fetch automático após criar
+            setEditingFuncionario(null);
+            fetchEquipe();
           }}
         />
       )}

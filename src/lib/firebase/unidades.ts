@@ -43,7 +43,7 @@ export interface UnidadeActor {
 
 export const getUnidades = async (
   condominioId: string | null,
-  isAdmin: boolean
+  isSuperAdmin: boolean
 ) => {
 
   const baseQuery = query(unidadesCollection);
@@ -51,7 +51,7 @@ export const getUnidades = async (
   const safeQuery = withCondominioFilter(
     baseQuery,
     condominioId,
-    isAdmin
+    isSuperAdmin
   );
 
   const snapshot = await getDocs(safeQuery);

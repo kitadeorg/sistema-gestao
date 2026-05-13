@@ -11,6 +11,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { can } from '@/lib/permissions/permissionMatrix';
+import Pagination, { usePagination } from '@/components/ui/Pagination';
 
 interface Props {
   unidades: any[];
@@ -43,9 +44,13 @@ export default function UnidadesGrid({
   const podeEditar = role ? can(role, 'update', 'unidade') : false;
   const podeExcluir = role ? can(role, 'delete', 'unidade') : false;
 
+  // Paginação
+  const { paged, page, setPage, totalPages, totalItems, pageSize } = usePagination(unidades, 12);
+
   return (
-    <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
-      {unidades.map((u) => {
+    <>
+      <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
+        {paged.map((u) => {
 
         const morador = moradoresMap[u.id];
         const emAtraso = financeiroMap[u.id] || 0;
@@ -152,5 +157,15 @@ export default function UnidadesGrid({
         );
       })}
     </div>
+
+    {/* Paginação */}
+    <Pagination
+      currentPage={page}
+      totalPages={totalPages}
+      onPageChange={setPage}
+      itemsPerPage={pageSize}
+      totalItems={totalItems}
+    />
+  </>
   );
 }

@@ -8,7 +8,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 
 export function useUnidades(condoId: string) {
 
-  const { isAdmin } = useAuthContext();
+  const { isSuperAdmin } = useAuthContext();
 
   const [unidades, setUnidades] = useState<any[]>([]);
   const [moradoresMap, setMoradoresMap] = useState<Record<string, any>>({});
@@ -20,7 +20,7 @@ export function useUnidades(condoId: string) {
 
     setLoading(true);
 
-    const data = await getUnidades(condoId, isAdmin);
+    const data = await getUnidades(condoId, isSuperAdmin);
     setUnidades(data);
 
     const moradoresSnap = await getDocs(

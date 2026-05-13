@@ -6,6 +6,7 @@
  */
 
 export type Role =
+  | 'super_admin'
   | 'admin'
   | 'gestor'
   | 'sindico'
@@ -42,6 +43,23 @@ export type Action =
  */
 
 const permissionMatrix: Record<Role, Partial<Record<Resource, Action[]>>> = {
+
+  // Dono da plataforma — tudo + pode gerir admins e super_admins
+  super_admin: {
+    condominio:    ['view', 'create', 'update', 'delete', 'manage'],
+    unidade:       ['view', 'create', 'update', 'delete'],
+    morador:       ['view', 'create', 'update', 'delete'],
+    pagamento:     ['view', 'create', 'update', 'delete', 'approve'],
+    financeiro:    ['view', 'manage'],
+    inadimplencia: ['view', 'create', 'update', 'delete'],
+    ocorrencia:    ['view', 'create', 'update', 'delete'],
+    manutencao:    ['view', 'create', 'update', 'delete'],
+    documento:     ['view', 'create', 'update', 'delete'],
+    assembleia:    ['view', 'create', 'update', 'delete'],
+    votacao:       ['view', 'create', 'update', 'delete'],
+    usuario:       ['view', 'create', 'update', 'delete', 'manage'],
+    audit_log:     ['view', 'manage'],
+  },
 
   admin: {
     condominio:   ['view', 'create', 'update', 'delete', 'manage'],

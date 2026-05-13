@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 
 interface Props {
   condoId: string;
+  funcionario?: { id: string; nome: string; email: string; telefone?: string; cargo?: string } | null;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -59,8 +60,14 @@ function Field({ label, value, onChange, error, type = 'text', placeholder }: {
   );
 }
 
-export default function FuncionarioSidePanel({ condoId, onClose, onSuccess }: Props) {
-  const [form, setForm]     = useState<FormData>({ nome: '', email: '', telefone: '', cargo: '' });
+export default function FuncionarioSidePanel({ condoId, funcionario, onClose, onSuccess }: Props) {
+  const isEdit = !!funcionario;
+  const [form, setForm]     = useState<FormData>({
+    nome:     funcionario?.nome     ?? '',
+    email:    funcionario?.email    ?? '',
+    telefone: funcionario?.telefone ?? '',
+    cargo:    funcionario?.cargo    ?? '',
+  });
   const [errors, setErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -80,6 +87,19 @@ export default function FuncionarioSidePanel({ condoId, onClose, onSuccess }: Pr
     setApiError(null);
 
     try {
+      if (isEdit && funcionario?.id) {
+        // Editar funcionário existente
+        const { updateUser } = await import('@/lib/firebase/users');
+        await updateUser(funcionario.id, {
+          nome:     form.nome.trim(),
+          telefone: form.telefone.trim(),
+          cargo:    form.cargo.trim(),
+        } as any);
+        toast.success('Funcionário actualizado com sucesso.');
+        onSuccess();
+        return;
+      }
+
       const result = await inviteUser({
         nome:        form.nome.trim(),
         email:       form.email.trim().toLowerCase(),
@@ -90,9 +110,7 @@ export default function FuncionarioSidePanel({ condoId, onClose, onSuccess }: Pr
         cargo:       form.cargo.trim(),
       });
 
-      // Guardar documentos no Firestore se existirem
       if (docs.length > 0) {
-        // O UID está no doc criado — buscamos pelo email
         const { getUserByEmail } = await import('@/lib/firebase/users');
         const found = await getUserByEmail(form.email.trim().toLowerCase());
         if (found?.data?.uid) {
@@ -131,8 +149,8 @@ export default function FuncionarioSidePanel({ condoId, onClose, onSuccess }: Pr
           <div className="flex items-center gap-3">
             <div className="p-2 bg-orange-50 rounded-xl"><UserCheck size={18} className="text-orange-500" /></div>
             <div>
-              <h2 className="text-base font-semibold text-zinc-900">Adicionar Funcionário</h2>
-              <p className="text-xs text-zinc-500">Convite enviado por email automaticamente</p>
+              <h2 className="text-base font-semibold text-zinc-900">{isEdit ? 'Editar Funcionário' : 'Adicionar Funcionário'}</h2>
+              <p className="text-xs text-zinc-500">{isEdit ? 'Actualizar dados do funcionário' : 'Convite enviado por email automaticamente'}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-zinc-100 text-zinc-400"><X size={18} /></button>

@@ -6,7 +6,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { getQuotasMorador, type Quota } from '@/lib/firebase/quotas';
-import { Bell, CreditCard, Users, Wallet, Loader2, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
+import { Bell, CreditCard, Users, Wallet, Loader2, AlertTriangle, CheckCircle2, Clock, Star } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 interface MoradorStats {
@@ -72,25 +72,29 @@ export default function MoradorPainelPage() {
     const fetchStats = async () => {
       try {
         const hoje = new Date();
-        const [ocorrSnap, visitSnap, quotas] = await Promise.all([
-          getDocs(query(
-            collection(db, 'ocorrencias'),
-            where('condominioId', '==', condominioId),
-            where('criadoPor', '==', userData.uid),
-            where('status', '==', 'aberta')
-          )),
-          ...(unidadeNumero ? [getDocs(query(
+        const ocorrSnap = await getDocs(query(
+          collection(db, 'ocorrencias'),
+          where('condominioId', '==', condominioId),
+          where('criadoPor', '==', userData.uid),
+          where('status', '==', 'aberta'),
+        ));
+
+        let visitantesCount = 0;
+        if (unidadeNumero) {
+          const visitSnap = await getDocs(query(
             collection(db, 'visitantes'),
             where('condominioId', '==', condominioId),
             where('unidadeDestino', '==', unidadeNumero),
-            where('status', '==', 'dentro')
-          ))] : [Promise.resolve({ size: 0 })]),
-          getQuotasMorador(condominioId, userData.uid),
-        ]);
+            where('status', '==', 'dentro'),
+          ));
+          visitantesCount = visitSnap.size;
+        }
+
+        const quotas = await getQuotasMorador(condominioId, userData.uid);
 
         setStats({
           ocorrenciasAtivas: ocorrSnap.size,
-          visitantesHoje: visitSnap.size,
+          visitantesHoje: visitantesCount,
         });
 
         // Quota do mês actual
@@ -242,6 +246,23 @@ export default function MoradorPainelPage() {
             className="inline-flex items-center gap-2 px-4 py-2 bg-white text-orange-600 rounded-xl text-sm font-bold"
           >
             Reportar Problema
+          </Link>
+        </div>
+
+        <div className="bg-zinc-50 border border-zinc-200 rounded-3xl p-6 shadow-sm">
+          <h3 className="font-bold text-zinc-900 mb-3 flex items-center gap-2">
+            <Star size={18} className="text-amber-500 fill-amber-500" />
+            Avaliar o Condomínio
+          </h3>
+          <p className="text-sm text-zinc-500 mb-4">
+            A tua opinião ajuda a melhorar o condomínio. Avalia mensalmente.
+          </p>
+          <Link
+            href={`/dashboard/condominio/${condominioId}/morador/avaliar`}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-sm font-bold transition-colors"
+          >
+            <Star size={14} />
+            Avaliar Agora
           </Link>
         </div>
       </div>

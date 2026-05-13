@@ -3,18 +3,13 @@
 import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
-import {
-  Building2,
-  MapPin,
-  DollarSign,
-  AlertTriangle,
-} from 'lucide-react';
-
+import { Building2, MapPin } from 'lucide-react';
 import {
   getResumoFinanceiro,
   atualizarPagamentosAtrasados,
   ResumoFinanceiro,
 } from '@/lib/firebase/financeiro';
+import DelegacaoAcessoPanel from './DelegacaoAcessoPanel';
 
 interface Props {
   condominioId: string;
@@ -33,22 +28,17 @@ function formatMoney(valor: number) {
 }
 
 export default function GestorCondominioView({ condominioId }: Props) {
-
   const [condominio, setCondominio] = useState<CondominioData | null>(null);
-  const [resumo, setResumo] = useState<ResumoFinanceiro | null>(null);
+  const [resumo,     setResumo]     = useState<ResumoFinanceiro | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       const snap = await getDoc(doc(db, 'condominios', condominioId));
-      if (snap.exists()) {
-        setCondominio(snap.data() as CondominioData);
-      }
-
+      if (snap.exists()) setCondominio(snap.data() as CondominioData);
       await atualizarPagamentosAtrasados(condominioId, false);
       const resumoData = await getResumoFinanceiro(condominioId, false);
       setResumo(resumoData);
     };
-
     fetchData();
   }, [condominioId]);
 
@@ -57,12 +47,11 @@ export default function GestorCondominioView({ condominioId }: Props) {
   return (
     <div className="space-y-8">
 
+      {/* Cabeçalho */}
       <div>
         <div className="flex items-center gap-3">
           <Building2 size={20} className="text-orange-500" />
-          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">
-            {condominio.nome}
-          </h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">{condominio.nome}</h1>
         </div>
         <div className="flex items-center gap-2 text-sm text-zinc-500 mt-2">
           <MapPin size={14} />
@@ -71,39 +60,33 @@ export default function GestorCondominioView({ condominioId }: Props) {
         </div>
       </div>
 
+      {/* KPIs financeiros */}
       {resumo && (
         <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
-
           <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
             <p className="text-sm text-zinc-500">Receita Total</p>
-            <h3 className="text-2xl font-bold mt-2">
-              {formatMoney(resumo.receitaTotal)}
-            </h3>
+            <h3 className="text-2xl font-bold mt-2">{formatMoney(resumo.receitaTotal)}</h3>
           </div>
-
           <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
             <p className="text-sm text-zinc-500">Inadimplência</p>
-            <h3 className="text-2xl font-bold mt-2 text-red-600">
-              {resumo.taxaInadimplencia.toFixed(1)}%
-            </h3>
+            <h3 className="text-2xl font-bold mt-2 text-red-600">{resumo.taxaInadimplencia.toFixed(1)}%</h3>
           </div>
-
           <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
             <p className="text-sm text-zinc-500">Total Pago</p>
-            <h3 className="text-2xl font-bold mt-2">
-              {formatMoney(resumo.totalPago)}
-            </h3>
+            <h3 className="text-2xl font-bold mt-2">{formatMoney(resumo.totalPago)}</h3>
           </div>
-
           <div className="bg-white border border-zinc-200 rounded-2xl p-5 shadow-sm">
             <p className="text-sm text-zinc-500">Total em Atraso</p>
-            <h3 className="text-2xl font-bold mt-2 text-red-600">
-              {formatMoney(resumo.totalAtrasado)}
-            </h3>
+            <h3 className="text-2xl font-bold mt-2 text-red-600">{formatMoney(resumo.totalAtrasado)}</h3>
           </div>
-
         </div>
       )}
+
+      {/* Delegação de acesso */}
+      <DelegacaoAcessoPanel
+        condominioId={condominioId}
+        condominioNome={condominio.nome}
+      />
 
     </div>
   );

@@ -46,7 +46,7 @@ export function Sidebar({ isSidebarCollapsed = false }: SidebarProps) {
 
       <SidebarHeader userRole={userData.role} isCollapsed={isSidebarCollapsed} />
 
-      {!isSidebarCollapsed && (userData.role === 'admin' || userData.role === 'gestor') && (
+      {!isSidebarCollapsed && (userData.role === 'admin' || userData.role === 'super_admin' || userData.role === 'gestor') && (
         <CondominioSelector
           condominios={condominiosList}
           selectedCondo={selectedCondo}

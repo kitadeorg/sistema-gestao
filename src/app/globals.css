@@ -169,6 +169,83 @@ body {
   box-shadow: var(--shadow-lg) !important;
 }
 
+/* ── FORÇA TEMA CLARO — páginas de autenticação ── */
+/* Sobrepõe TODAS as regras .dark para qualquer elemento dentro de [data-force-light] */
+[data-force-light],
+[data-force-light] * {
+  color-scheme: light !important;
+}
+
+[data-force-light] [class*="bg-white"],
+.dark [data-force-light] [class*="bg-white"] {
+  background-color: #ffffff !important;
+}
+[data-force-light] [class*="bg-zinc-50"],
+.dark [data-force-light] [class*="bg-zinc-50"] {
+  background-color: #fafafa !important;
+}
+[data-force-light] [class*="bg-zinc-100"],
+.dark [data-force-light] [class*="bg-zinc-100"] {
+  background-color: #f4f4f5 !important;
+}
+[data-force-light] [class*="bg-zinc-200"],
+.dark [data-force-light] [class*="bg-zinc-200"] {
+  background-color: #e4e4e7 !important;
+}
+[data-force-light] [class*="text-zinc-900"],
+.dark [data-force-light] [class*="text-zinc-900"] {
+  color: #09090b !important;
+}
+[data-force-light] [class*="text-zinc-800"],
+.dark [data-force-light] [class*="text-zinc-800"] {
+  color: #18181b !important;
+}
+[data-force-light] [class*="text-zinc-700"],
+.dark [data-force-light] [class*="text-zinc-700"] {
+  color: #3f3f46 !important;
+}
+[data-force-light] [class*="text-zinc-600"],
+.dark [data-force-light] [class*="text-zinc-600"] {
+  color: #52525b !important;
+}
+[data-force-light] [class*="text-zinc-500"],
+.dark [data-force-light] [class*="text-zinc-500"] {
+  color: #71717a !important;
+}
+[data-force-light] [class*="text-zinc-400"],
+.dark [data-force-light] [class*="text-zinc-400"] {
+  color: #a1a1aa !important;
+}
+[data-force-light] [class*="border-zinc-200"],
+.dark [data-force-light] [class*="border-zinc-200"] {
+  border-color: #e4e4e7 !important;
+}
+[data-force-light] [class*="border-zinc-100"],
+.dark [data-force-light] [class*="border-zinc-100"] {
+  border-color: #f4f4f5 !important;
+}
+[data-force-light] input,
+[data-force-light] select,
+[data-force-light] textarea,
+.dark [data-force-light] input,
+.dark [data-force-light] select,
+.dark [data-force-light] textarea {
+  background-color: #ffffff !important;
+  color: #09090b !important;
+  border-color: #e4e4e7 !important;
+}
+[data-force-light] input::placeholder,
+[data-force-light] textarea::placeholder,
+.dark [data-force-light] input::placeholder,
+.dark [data-force-light] textarea::placeholder {
+  color: #a1a1aa !important;
+}
+[data-force-light],
+.dark [data-force-light] {
+  background-color: #f8fafc !important;
+  color: #09090b !important;
+}
+
 /* ── SEM ANIMAÇÕES ── */
 .no-animations *,
 .no-animations *::before,

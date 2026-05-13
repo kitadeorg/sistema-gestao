@@ -22,6 +22,7 @@ interface UseAdminDashboardProps {
   startDate: Date;
   endDate: Date;
   selectedCondo?: string;
+  condominiosGeridos?: string[]; // IDs do portfólio do admin (undefined = super_admin, vê tudo)
 }
 
 // ─────────────────────────────────────────────
@@ -48,6 +49,7 @@ export function useAdminDashboard({
   startDate,
   endDate,
   selectedCondo,
+  condominiosGeridos,
 }: UseAdminDashboardProps) {
   const [data,    setData]    = useState<DashboardAdminData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,17 +66,42 @@ export function useAdminDashboard({
         const isGlobal = selectedCondo === 'all';
 
         // ── 1. Condomínios ──────────────────────────────────────────
-        const condosSnap = await getDocs(collection(db, 'condominios'));
-        const todosCondos = condosSnap.docs.map(d => ({
-          id:           d.id,
-          nome:         d.data().nome         ?? 'Condomínio',
-          status:       d.data().status        ?? 'inactive',
-          totalUnidades: d.data().totalUnidades ?? 0,
-        }));
+        // super_admin (condominiosGeridos === undefined) → full scan
+        // admin scoped (condominiosGeridos = array) → busca só os seus por ID
+        let todosCondos: { id: string; nome: string; status: string; totalUnidades: number }[] = [];
+
+        if (!condominiosGeridos) {
+          // super_admin — pode listar tudo
+          const condosSnap = await getDocs(collection(db, 'condominios'));
+          todosCondos = condosSnap.docs.map(d => ({
+            id:            d.id,
+            nome:          d.data().nome          ?? 'Condomínio',
+            status:        d.data().status         ?? 'inactive',
+            totalUnidades: d.data().totalUnidades  ?? 0,
+          }));
+        } else if (condominiosGeridos.length > 0) {
+          // admin scoped — busca individualmente os condomínios permitidos
+          const chunks = chunk(condominiosGeridos, 30);
+          const snaps = await Promise.all(
+            chunks.map(ch =>
+              getDocs(query(collection(db, 'condominios'), where('__name__', 'in', ch)))
+            )
+          );
+          todosCondos = snaps.flatMap(s => s.docs.map(d => ({
+            id:            d.id,
+            nome:          d.data().nome          ?? 'Condomínio',
+            status:        d.data().status         ?? 'inactive',
+            totalUnidades: d.data().totalUnidades  ?? 0,
+          })));
+        }
+
+        // admin scoped: condosPermitidos já é o portfólio filtrado
+        // super_admin: condosPermitidos = todos
+        const condosPermitidos = todosCondos;
 
         const condosFiltrados = isGlobal
-          ? todosCondos
-          : todosCondos.filter(c => c.id === selectedCondo);
+          ? condosPermitidos
+          : condosPermitidos.filter(c => c.id === selectedCondo);
 
         const condoIds = condosFiltrados.map(c => c.id);
 
@@ -151,10 +178,27 @@ export function useAdminDashboard({
         const ocorrenciasAbertas = ocorrSnaps.reduce((acc, s) => acc + s.size, 0);
 
         // ── 5. Utilizadores activos ─────────────────────────────────
-        const usuariosSnap = await getDocs(
-          query(collection(db, 'usuarios'), where('status', '==', 'ativo'))
-        );
-        const usuariosAtivos = usuariosSnap.size;
+        // super_admin: conta todos; admin scoped: conta só os dos seus condomínios
+        let usuariosAtivos = 0;
+        if (!condominiosGeridos) {
+          // super_admin — full scan
+          const usuariosSnap = await getDocs(
+            query(collection(db, 'usuarios'), where('status', '==', 'ativo'))
+          );
+          usuariosAtivos = usuariosSnap.size;
+        } else if (condoIds.length > 0) {
+          // admin scoped — utilizadores ligados aos seus condomínios
+          const [snapDireto, ...snapGestores] = await Promise.all([
+            getDocs(query(
+              collection(db, 'usuarios'),
+              where('status', '==', 'ativo'),
+              where('condominioId', 'in', condoIds.slice(0, 30)),
+            )),
+          ]);
+          const vistos = new Set<string>();
+          for (const d of snapDireto.docs) vistos.add(d.id);
+          usuariosAtivos = vistos.size;
+        }
 
         // ── 6. Calcular KPIs financeiros ────────────────────────────
         let receitaTotal = 0;

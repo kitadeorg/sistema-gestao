@@ -37,17 +37,30 @@ type DnsValidationState =
   | { state: 'valid' }
   | { state: 'invalid'; reason: 'invalid_format' | 'no_mx_record' | 'dns_error' };
 
-const ROLE_OPTIONS: Array<{ value: Role; label: string; hint: string }> = [
-  { value: 'admin',       label: 'Administrador',       hint: 'Acesso total ao sistema'       },
-  { value: 'gestor',      label: 'Gestor de Portfólio', hint: 'Gere múltiplos condomínios'    },
-  { value: 'sindico',     label: 'Síndico',             hint: 'Gestão de um condomínio'       },
-  { value: 'funcionario', label: 'Funcionário',          hint: 'Manutenção e operações'        },
-  { value: 'morador',     label: 'Morador',             hint: 'Acesso ao seu apartamento'     },
+const ROLE_OPTIONS_SUPER_ADMIN: Array<{ value: Role; label: string; hint: string }> = [
+  { value: 'super_admin', label: 'Super Administrador', hint: 'Dono da plataforma — acesso total' },
+  { value: 'admin',       label: 'Administrador',       hint: 'Acesso total ao sistema'           },
+  { value: 'gestor',      label: 'Gestor de Portfólio', hint: 'Gere múltiplos condomínios'        },
+  { value: 'sindico',     label: 'Síndico',             hint: 'Gestão de um condomínio'           },
+  { value: 'funcionario', label: 'Funcionário',          hint: 'Manutenção e operações'            },
+  { value: 'morador',     label: 'Morador',             hint: 'Acesso ao seu apartamento'         },
 ];
+
+// admin não pode criar super_admin
+const ROLE_OPTIONS_ADMIN: Array<{ value: Role; label: string; hint: string }> = [
+  { value: 'admin',       label: 'Administrador',       hint: 'Acesso total ao sistema'           },
+  { value: 'gestor',      label: 'Gestor de Portfólio', hint: 'Gere múltiplos condomínios'        },
+  { value: 'sindico',     label: 'Síndico',             hint: 'Gestão de um condomínio'           },
+  { value: 'funcionario', label: 'Funcionário',          hint: 'Manutenção e operações'            },
+  { value: 'morador',     label: 'Morador',             hint: 'Acesso ao seu apartamento'         },
+];
+
+// Mantido por retrocompatibilidade — usar os específicos acima
+const ROLE_OPTIONS: Array<{ value: Role; label: string; hint: string }> = ROLE_OPTIONS_SUPER_ADMIN;
 
 const ROLES_SINGLE_CONDO: Role[] = ['sindico', 'funcionario', 'morador'];
 const ROLES_MULTI_CONDO:  Role[] = ['gestor'];
-const ROLES_NO_CONDO:     Role[] = ['admin'];
+const ROLES_NO_CONDO:     Role[] = ['admin', 'super_admin'];
 
 const DNS_ERROR_MESSAGES: Record<string, string> = {
   invalid_format: 'Formato de e-mail inválido.',
@@ -61,8 +74,12 @@ const DNS_ERROR_MESSAGES: Record<string, string> = {
 
 export default function UserModal({ user, onClose, onSuccess }: UserModalProps) {
   const { userData: currentUserData } = useAuthContext();
-  const isAdmin = currentUserData?.role === 'admin';
-  const isEdit  = !!user;
+  const isAdmin     = currentUserData?.role === 'admin' || currentUserData?.role === 'super_admin';
+  const isSuperAdmin = currentUserData?.role === 'super_admin';
+  const isEdit      = !!user;
+
+  // Opções de role disponíveis conforme quem está a criar
+  const roleOptions = isSuperAdmin ? ROLE_OPTIONS_SUPER_ADMIN : ROLE_OPTIONS_ADMIN;
 
   // ── Estado do formulário ──
   const initial = useMemo(() => ({
@@ -538,7 +555,7 @@ export default function UserModal({ user, onClose, onSuccess }: UserModalProps) 
                   Perfil (Permissão)
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {ROLE_OPTIONS.map((opt) => {
+                  {roleOptions.map((opt) => {
                     const selected = role === opt.value;
                     return (
                       <button

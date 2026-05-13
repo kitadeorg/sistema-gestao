@@ -20,6 +20,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
+import Pagination, { usePagination } from '@/components/ui/Pagination';
 
 /* ─────────────────────────────────────────────────────────────────────────────
    TYPES
@@ -121,39 +122,40 @@ export default function FluxoCaixaContent({ condominios }: Props) {
       const condoIds = condominios.map((c) => c.id);
       const chunks = chunkArray(condoIds, 30);
 
-      // ── Receitas (pagamentos pagos) ──
+      // ── Receitas (quotas pagas no período) ──
       const receitaResults = await Promise.all(
         chunks.map((chunk) =>
           getDocs(
             query(
-              collection(db, 'pagamentos'),
+              collection(db, 'quotas'),
               where('condominioId', 'in', chunk),
               where('status', '==', 'pago'),
-              where('dataPagamento', '>=', Timestamp.fromDate(inicio)),
-              where('dataPagamento', '<=', Timestamp.fromDate(fim))
             )
           )
         )
       );
-      const receitaDocs = receitaResults.flatMap((r) => r.docs);
+      const receitaDocs = receitaResults.flatMap((r) => r.docs).filter(doc => {
+        const pag = doc.data().dataPagamento?.toDate?.();
+        return pag && pag >= inicio && pag <= fim;
+      });
 
-      // ── Despesas (financeiro com tipo 'despesa') ──
+      // ── Despesas (coleção despesas) ──
       let despesaDocs: any[] = [];
       try {
         const despesaResults = await Promise.all(
           chunks.map((chunk) =>
             getDocs(
               query(
-                collection(db, 'financeiro'),
+                collection(db, 'despesas'),
                 where('condominioId', 'in', chunk),
-                where('tipo', '==', 'despesa'),
-                where('data', '>=', Timestamp.fromDate(inicio)),
-                where('data', '<=', Timestamp.fromDate(fim))
               )
             )
           )
         );
-        despesaDocs = despesaResults.flatMap((r) => r.docs);
+        despesaDocs = despesaResults.flatMap((r) => r.docs).filter(doc => {
+          const data = doc.data().data?.toDate?.();
+          return data && data >= inicio && data <= fim;
+        });
       } catch (e) {
         console.warn('[FluxoCaixa] Despesas indisponível:', e);
       }
@@ -218,6 +220,12 @@ export default function FluxoCaixaContent({ condominios }: Props) {
   useEffect(() => {
     fetchFluxo();
   }, [fetchFluxo]);
+
+  // Paginação
+  const { paged, page, setPage, totalPages, totalItems, pageSize } = usePagination(
+    dados?.porCondominio ?? [],
+    10
+  );
 
   /* ── Skeleton ── */
 
@@ -406,11 +414,11 @@ export default function FluxoCaixaContent({ condominios }: Props) {
             <p className="text-zinc-400 text-sm">Sem dados financeiros no período</p>
           </div>
         ) : (
-          dados.porCondominio.map((item, idx) => (
+          paged.map((item, idx) => (
             <div
               key={item.condominioId}
               className={`grid grid-cols-5 px-6 py-4 items-center ${
-                idx < dados.porCondominio.length - 1
+                idx < paged.length - 1
                   ? 'border-b border-zinc-50'
                   : ''
               } hover:bg-zinc-50/50 transition`}
@@ -487,6 +495,17 @@ export default function FluxoCaixaContent({ condominios }: Props) {
           </div>
         ) : null}
       </div>
+
+      {/* Paginação */}
+      {dados?.porCondominio && dados.porCondominio.length > 0 && (
+        <Pagination
+          currentPage={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          itemsPerPage={pageSize}
+          totalItems={totalItems}
+        />
+      )}
     </div>
   );
 }

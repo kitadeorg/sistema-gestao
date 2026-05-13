@@ -1,0 +1,641 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── FUNÇÕES AUXILIARES ──────────────────────────────────────────────────
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function myDocExists() {
+      return isAuthenticated()
+        && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid));
+    }
+
+    function me() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+
+    function myRole() {
+      return me().role;
+    }
+
+    function isSuperAdmin() {
+      return myDocExists() && myRole() == 'super_admin';
+    }
+
+    function isAdmin() {
+      return myDocExists() && (myRole() == 'admin' || myRole() == 'super_admin');
+    }
+
+    function isScopedAdmin() {
+      return myDocExists() && myRole() == 'admin';
+    }
+
+    function isGestor() {
+      return myDocExists() && myRole() == 'gestor';
+    }
+
+    function isAdminOrGestor() {
+      return myDocExists()
+        && (myRole() == 'admin' || myRole() == 'super_admin' || myRole() == 'gestor');
+    }
+
+    function isSelf(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // ── ACESSO A CONDOMÍNIO (para get individual) ───────────────────────────
+    // Usado em regras de get/update/delete onde resource.data está disponível
+    function hasCondoAccess(condoId) {
+      let data = me();
+      return isAuthenticated() && myDocExists()
+        && (
+          data.role == 'super_admin'
+          || (
+            (data.role == 'admin' || data.role == 'gestor')
+            && 'condominiosGeridos' in data
+            && data.condominiosGeridos.hasAny([condoId])
+          )
+          || (
+            'condominioId' in data
+            && data.condominioId == condoId
+          )
+        );
+    }
+
+    // ── ACESSO A CONDOMÍNIO (para list/query) ───────────────────────────────
+    // Para queries, o Firestore não tem resource.data disponível antes de executar.
+    // A segurança é garantida pelo facto de o cliente só pedir condoIds que lhe pertencem.
+    // admin/gestor: permitido (filtragem feita no cliente com where condominioId in [...])
+    // sindico/funcionario/morador: só podem listar se tiverem condominioId definido
+    function canListForCondo() {
+      let data = me();
+      return isAuthenticated() && myDocExists()
+        && (
+          data.role == 'super_admin'
+          || data.role == 'admin'
+          || data.role == 'gestor'
+          || data.role == 'sindico'
+          || 'condominioId' in data
+        );
+    }
+
+    function isFuncionarioDoCondominio(condoId) {
+      let data = me();
+      return isAuthenticated() && myDocExists()
+        && data.role == 'funcionario'
+        && 'condominioId' in data
+        && data.condominioId == condoId;
+    }
+
+    function isMoradorDoCondominio(condoId) {
+      let data = me();
+      return isAuthenticated() && myDocExists()
+        && data.role == 'morador'
+        && 'condominioId' in data
+        && data.condominioId == condoId;
+    }
+
+    function onlySelfEditableFields() {
+      return request.resource.data.diff(resource.data).changedKeys()
+        .hasOnly(['nome', 'telefone', 'avatarUrl', 'updatedAt']);
+    }
+
+    function isSetupFields() {
+      return request.resource.data.diff(resource.data).changedKeys()
+        .hasOnly(['nome', 'mustChangeCredentials', 'tempUsername', 'tempPassword', 'status', 'updatedAt']);
+    }
+
+    // ── REGRAS ──────────────────────────────────────────────────────────────
+
+    match /user_preferences/{userId} {
+      allow read:  if isSelf(userId);
+      allow write: if isSelf(userId);
+    }
+
+    // ── PRÉ-REGISTO ─────────────────────────────────────────────────────────
+    match /usuarios_pre_registro/{emailDoc} {
+      allow get:    if true;
+      allow list:   if isAdminOrGestor() || (myDocExists() && myRole() == 'sindico');
+      allow create: if isAdminOrGestor() || (myDocExists() && myRole() == 'sindico');
+      allow delete: if isAdminOrGestor()
+                    || (myDocExists() && myRole() == 'sindico')
+                    || (isAuthenticated() && emailDoc == request.auth.token.email);
+      allow update: if false;
+    }
+
+    // ── UTILIZADORES ────────────────────────────────────────────────────────
+    match /usuarios/{userId} {
+      allow get:  if isSelf(userId) || isAdminOrGestor() || (myDocExists() && myRole() == 'sindico');
+      allow list: if isAdminOrGestor() || (myDocExists() && myRole() == 'sindico');
+
+      allow create: if isAdminOrGestor()
+                    || (myDocExists() && myRole() == 'sindico')
+                    || (isSelf(userId)
+                        && request.auth.token.email != null
+                        && request.resource.data.email == request.auth.token.email
+                        && request.resource.data.uid == userId
+                        && request.resource.data.status != 'pendente'
+                        && exists(/databases/$(database)/documents/usuarios_pre_registro/$(request.auth.token.email)));
+
+      allow update: if isAdmin()
+                    || isGestor()
+                    || (myDocExists() && myRole() == 'sindico')
+                    || (isSelf(userId)
+                        && onlySelfEditableFields()
+                        && request.resource.data.email     == resource.data.email
+                        && request.resource.data.role      == resource.data.role
+                        && request.resource.data.status    == resource.data.status
+                        && request.resource.data.createdAt == resource.data.createdAt)
+                    || (isSelf(userId)
+                        && resource.data.mustChangeCredentials == true
+                        && isSetupFields()
+                        && request.resource.data.mustChangeCredentials == false
+                        && request.resource.data.email     == resource.data.email
+                        && request.resource.data.role      == resource.data.role
+                        && request.resource.data.createdAt == resource.data.createdAt);
+
+      allow delete: if (isSuperAdmin() && !isSelf(userId))
+                    || (isScopedAdmin() && !isSelf(userId)
+                        && resource.data.role != 'admin'
+                        && resource.data.role != 'super_admin');
+    }
+
+    // ── CONDOMÍNIOS ─────────────────────────────────────────────────────────
+    match /condominios/{condoId} {
+      // get individual: verifica acesso ao condomínio específico
+      allow get: if hasCondoAccess(condoId)
+                 || isFuncionarioDoCondominio(condoId)
+                 || isMoradorDoCondominio(condoId);
+
+      // list (queries): admin/gestor podem listar — filtragem feita no cliente
+      allow list: if isAdminOrGestor()
+                  || (myDocExists() && myRole() == 'sindico')
+                  || (myDocExists() && myRole() == 'funcionario')
+                  || (myDocExists() && myRole() == 'morador');
+
+      allow create: if isAdmin();
+
+      allow update: if hasCondoAccess(condoId)
+                    && (isAdmin() || isGestor() || (myDocExists() && myRole() == 'sindico'));
+
+      allow delete: if isAdmin();
+    }
+
+    match /condominios/{condoId}/stats/{statId} {
+      allow read:  if hasCondoAccess(condoId) || isFuncionarioDoCondominio(condoId);
+      allow write: if false;
+    }
+
+    // ── UNIDADES ─────────────────────────────────────────────────────────────
+    match /unidades/{unitId} {
+      allow get: if myDocExists()
+                 && (hasCondoAccess(resource.data.condominioId)
+                     || isFuncionarioDoCondominio(resource.data.condominioId)
+                     || isMoradorDoCondominio(resource.data.condominioId));
+
+      allow list: if canListForCondo();
+
+      allow create: if myDocExists()
+                    && hasCondoAccess(request.resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow update: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && request.resource.data.condominioId == resource.data.condominioId
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow delete: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+    }
+
+    // ── MORADORES ────────────────────────────────────────────────────────────
+    match /moradores/{moradorId} {
+      allow get: if myDocExists()
+                 && (request.auth.uid == moradorId
+                     || moradorId == request.auth.token.email
+                     || hasCondoAccess(resource.data.condominioId)
+                     || isFuncionarioDoCondominio(resource.data.condominioId)
+                     || isMoradorDoCondominio(resource.data.condominioId));
+
+      allow list: if canListForCondo();
+
+      allow create: if myDocExists()
+                    && (request.auth.uid == moradorId
+                        || moradorId == request.auth.token.email
+                        || (hasCondoAccess(request.resource.data.condominioId)
+                            && (isAdminOrGestor() || myRole() == 'sindico')));
+
+      allow update: if myDocExists()
+                    && (request.auth.uid == moradorId
+                        || moradorId == request.auth.token.email
+                        || (hasCondoAccess(resource.data.condominioId)
+                            && request.resource.data.condominioId == resource.data.condominioId
+                            && (isAdminOrGestor() || myRole() == 'sindico')));
+
+      allow delete: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+    }
+
+    // ── DESPESAS ─────────────────────────────────────────────────────────────
+    match /despesas/{despesaId} {
+      allow get:  if myDocExists() && hasCondoAccess(resource.data.condominioId);
+      allow list: if canListForCondo();
+
+      allow create: if myDocExists()
+                    && hasCondoAccess(request.resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow update: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && request.resource.data.condominioId == resource.data.condominioId
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow delete: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && (isAdmin() || myRole() == 'sindico');
+    }
+
+    // ── QUOTAS ───────────────────────────────────────────────────────────────
+    match /quotas/{quotaId} {
+      allow get: if myDocExists()
+                 && (hasCondoAccess(resource.data.condominioId)
+                     || (myRole() == 'morador' && request.auth.uid == resource.data.moradorId)
+                     || isMoradorDoCondominio(resource.data.condominioId));
+
+      allow list: if canListForCondo();
+
+      allow create: if myDocExists()
+                    && hasCondoAccess(request.resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow update: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow delete: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && isAdmin();
+    }
+
+    // ── AVALIAÇÕES ───────────────────────────────────────────────────────────
+    match /avaliacoes/{avaliacaoId} {
+      allow get: if myDocExists()
+                 && (hasCondoAccess(resource.data.condominioId)
+                     || (myRole() == 'morador' && request.auth.uid == resource.data.moradorId));
+
+      allow list: if canListForCondo();
+
+      allow create: if myDocExists()
+                    && myRole() == 'morador'
+                    && request.resource.data.moradorId == request.auth.uid;
+
+      allow update: if false;
+
+      allow delete: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && isAdmin();
+    }
+
+    // ── FINANCEIRO ───────────────────────────────────────────────────────────
+    match /financeiro/{docId} {
+      allow get: if myDocExists()
+                 && (hasCondoAccess(resource.data.condominioId)
+                     || (myRole() == 'morador'
+                         && request.auth.uid == resource.data.moradorId
+                         && isMoradorDoCondominio(resource.data.condominioId)));
+
+      allow list: if canListForCondo();
+
+      allow create: if myDocExists()
+                    && hasCondoAccess(request.resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow update: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && request.resource.data.condominioId == resource.data.condominioId
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow delete: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && isAdmin();
+    }
+
+    // ── INADIMPLÊNCIA ────────────────────────────────────────────────────────
+    match /inadimplencia/{docId} {
+      allow get:  if myDocExists() && hasCondoAccess(resource.data.condominioId);
+      allow list: if canListForCondo();
+
+      allow create: if myDocExists()
+                    && hasCondoAccess(request.resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow update: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && request.resource.data.condominioId == resource.data.condominioId
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow delete: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+    }
+
+    // ── TAREFAS ──────────────────────────────────────────────────────────────
+    match /tarefas/{tarefaId} {
+      allow get: if myDocExists()
+                 && (hasCondoAccess(resource.data.condominioId)
+                     || isFuncionarioDoCondominio(resource.data.condominioId));
+
+      allow list: if canListForCondo();
+
+      allow create: if myDocExists()
+                    && hasCondoAccess(request.resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow update: if myDocExists()
+                    && (hasCondoAccess(resource.data.condominioId)
+                        || isFuncionarioDoCondominio(resource.data.condominioId))
+                    && (isAdminOrGestor() || myRole() == 'sindico' || myRole() == 'funcionario');
+
+      allow delete: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+    }
+
+    // ── PAGAMENTOS ───────────────────────────────────────────────────────────
+    match /pagamentos/{paymentId} {
+      allow get: if myDocExists()
+                 && (hasCondoAccess(resource.data.condominioId)
+                     || (myRole() == 'morador' && request.auth.uid == resource.data.moradorId));
+
+      allow list: if canListForCondo();
+
+      allow create: if myDocExists()
+                    && hasCondoAccess(request.resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow update: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && request.resource.data.condominioId == resource.data.condominioId
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow delete: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && isAdmin();
+    }
+
+    // ── OCORRÊNCIAS ──────────────────────────────────────────────────────────
+    match /ocorrencias/{occurrenceId} {
+      allow get: if myDocExists()
+                 && (hasCondoAccess(resource.data.condominioId)
+                     || myRole() == 'sindico'
+                     || isFuncionarioDoCondominio(resource.data.condominioId)
+                     || isMoradorDoCondominio(resource.data.condominioId)
+                     || resource.data.assignedTo == request.auth.uid
+                     || resource.data.criadoPor  == request.auth.uid);
+
+      allow list: if canListForCondo();
+
+      allow create: if myDocExists()
+                    && (hasCondoAccess(request.resource.data.condominioId)
+                        || isFuncionarioDoCondominio(request.resource.data.condominioId)
+                        || isMoradorDoCondominio(request.resource.data.condominioId))
+                    && request.resource.data.criadoPor == request.auth.uid;
+
+      allow update: if myDocExists()
+                    && (hasCondoAccess(resource.data.condominioId)
+                        || myRole() == 'sindico'
+                        || isFuncionarioDoCondominio(resource.data.condominioId)
+                        || resource.data.assignedTo == request.auth.uid);
+
+      allow delete: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+    }
+
+    // ── VISITANTES ───────────────────────────────────────────────────────────
+    match /visitantes/{visitorId} {
+      allow get: if myDocExists()
+                 && (hasCondoAccess(resource.data.condominioId)
+                     || myRole() == 'sindico'
+                     || isFuncionarioDoCondominio(resource.data.condominioId)
+                     || isMoradorDoCondominio(resource.data.condominioId));
+
+      allow list: if canListForCondo();
+
+      allow create: if myDocExists()
+                    && (hasCondoAccess(request.resource.data.condominioId)
+                        || isFuncionarioDoCondominio(request.resource.data.condominioId)
+                        || isMoradorDoCondominio(request.resource.data.condominioId));
+
+      allow update: if myDocExists()
+                    && (hasCondoAccess(resource.data.condominioId)
+                        || isFuncionarioDoCondominio(resource.data.condominioId))
+                    && (isAdminOrGestor() || myRole() == 'sindico' || myRole() == 'funcionario');
+
+      allow delete: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+    }
+
+    // ── MANUTENÇÃO ───────────────────────────────────────────────────────────
+    match /manutencao/{maintenanceId} {
+      allow get: if myDocExists()
+                 && (hasCondoAccess(resource.data.condominioId)
+                     || myRole() == 'sindico'
+                     || isFuncionarioDoCondominio(resource.data.condominioId));
+
+      allow list: if canListForCondo();
+
+      allow create: if myDocExists()
+                    && (hasCondoAccess(request.resource.data.condominioId)
+                        || isFuncionarioDoCondominio(request.resource.data.condominioId));
+
+      allow update: if myDocExists()
+                    && (hasCondoAccess(resource.data.condominioId)
+                        || isFuncionarioDoCondominio(resource.data.condominioId))
+                    && (isAdminOrGestor() || myRole() == 'sindico' || myRole() == 'funcionario');
+
+      allow delete: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+    }
+
+    // ── HISTÓRICO DE RESIDÊNCIA ───────────────────────────────────────────────
+    match /historico_residencia/{docId} {
+      allow get:  if myDocExists() && hasCondoAccess(resource.data.condominioId);
+      allow list: if isAdminOrGestor() || (myDocExists() && myRole() == 'sindico');
+      allow create: if isAuthenticated(); // criado automaticamente ao eliminar morador
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // ── FORNECEDORES ──────────────────────────────────────────────────────────
+    match /fornecedores/{docId} {
+      allow read: if myDocExists() && hasCondoAccess(resource.data.condominioId);
+      allow create: if myDocExists() && (isAdmin() || myRole() == 'sindico' || myRole() == 'gestor');
+      allow update: if myDocExists() && (isAdmin() || myRole() == 'sindico' || myRole() == 'gestor');
+      allow delete: if myDocExists() && (isAdmin() || myRole() == 'sindico');
+    }
+
+    // ── COMENTÁRIOS DE OCORRÊNCIAS ────────────────────────────────────────────
+    match /ocorrencias/{occurrenceId}/comentarios/{comentarioId} {
+      allow read: if myDocExists()
+                  && (hasCondoAccess(resource.data.condominioId)
+                      || myRole() == 'sindico'
+                      || myRole() == 'funcionario'
+                      || myRole() == 'morador');
+
+      allow list: if isAuthenticated() && myDocExists();
+
+      allow create: if isAuthenticated() && myDocExists()
+                    && request.resource.data.autorId == request.auth.uid;
+
+      allow update: if false;
+      allow delete: if isAdmin();
+    }
+
+    // ── AVISOS (Módulo Comunicação) ───────────────────────────────────────────
+    match /avisos/{avisoId} {
+      allow get: if myDocExists()
+                 && (hasCondoAccess(resource.data.condominioId)
+                     || isFuncionarioDoCondominio(resource.data.condominioId)
+                     || isMoradorDoCondominio(resource.data.condominioId));
+
+      allow list: if canListForCondo();
+
+      allow create: if myDocExists()
+                    && hasCondoAccess(request.resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow update: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && request.resource.data.condominioId == resource.data.condominioId
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow delete: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+    }
+
+    // ── COMUNICADOS ──────────────────────────────────────────────────────────
+    match /comunicados/{announcementId} {
+      allow get: if myDocExists()
+                 && (hasCondoAccess(resource.data.condominioId)
+                     || isFuncionarioDoCondominio(resource.data.condominioId)
+                     || isMoradorDoCondominio(resource.data.condominioId));
+
+      allow list: if canListForCondo();
+
+      allow create: if myDocExists()
+                    && hasCondoAccess(request.resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow update: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && request.resource.data.condominioId == resource.data.condominioId
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow delete: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+    }
+
+    // ── DOCUMENTOS ───────────────────────────────────────────────────────────
+    match /documentos/{docId} {
+      allow get: if myDocExists()
+                 && (hasCondoAccess(resource.data.condominioId)
+                     || isFuncionarioDoCondominio(resource.data.condominioId)
+                     || isMoradorDoCondominio(resource.data.condominioId));
+
+      allow list: if canListForCondo();
+
+      allow create: if myDocExists()
+                    && hasCondoAccess(request.resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow update: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && request.resource.data.condominioId == resource.data.condominioId
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow delete: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && isAdmin();
+    }
+
+    // ── ASSEMBLEIAS ──────────────────────────────────────────────────────────
+    match /assembleias/{assemblyId} {
+      allow get: if myDocExists()
+                 && (hasCondoAccess(resource.data.condominioId)
+                     || isFuncionarioDoCondominio(resource.data.condominioId)
+                     || isMoradorDoCondominio(resource.data.condominioId));
+
+      allow list: if canListForCondo();
+
+      allow create: if myDocExists()
+                    && hasCondoAccess(request.resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow update: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && request.resource.data.condominioId == resource.data.condominioId
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow delete: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+    }
+
+    // ── VOTAÇÕES ─────────────────────────────────────────────────────────────
+    match /votacoes/{voteId} {
+      allow get: if myDocExists()
+                 && (hasCondoAccess(resource.data.condominioId)
+                     || isFuncionarioDoCondominio(resource.data.condominioId)
+                     || isMoradorDoCondominio(resource.data.condominioId));
+
+      allow list: if canListForCondo();
+
+      allow create: if myDocExists()
+                    && hasCondoAccess(request.resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow update: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+
+      allow delete: if myDocExists()
+                    && hasCondoAccess(resource.data.condominioId)
+                    && (isAdminOrGestor() || myRole() == 'sindico');
+    }
+
+    // ── AUDIT LOGS ───────────────────────────────────────────────────────────
+    match /audit_logs/{logId} {
+      allow get: if myDocExists()
+                 && (myRole() == 'super_admin'
+                     || myRole() == 'admin'
+                     || myRole() == 'gestor');
+
+      // list: super_admin vê tudo; admin vê os seus (actorId) + dos seus condos;
+      //       gestor vê os seus condomínios
+      allow list: if myDocExists()
+                  && (myRole() == 'super_admin'
+                      || myRole() == 'admin'
+                      || myRole() == 'gestor');
+
+      allow create: if isAuthenticated();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── REGRA PADRÃO (NEGAR TUDO) ────────────────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

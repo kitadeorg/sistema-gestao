@@ -41,14 +41,14 @@ export interface MoradorActor {
 
 export const getMoradores = async (
   condominioId: string | null,
-  isAdmin: boolean
+  isSuperAdmin: boolean
 ) => {
   const baseQuery = query(moradoresCollection);
 
   const safeQuery = withCondominioFilter(
     baseQuery,
     condominioId,
-    isAdmin
+    isSuperAdmin
   );
 
   const snapshot = await getDocs(safeQuery);
@@ -144,6 +144,20 @@ export const deleteMorador = async (
   condominioId: string,
   actor?: MoradorActor,
 ) => {
+  // 0️⃣ Guardar histórico antes de eliminar
+  const moradorSnap = await getDoc(doc(db, 'moradores', id));
+  if (moradorSnap.exists()) {
+    const moradorData = moradorSnap.data();
+    await setDoc(doc(collection(db, 'historico_residencia')), {
+      ...moradorData,
+      moradorId:   id,
+      condominioId,
+      unidadeId,
+      dataSaida:   serverTimestamp(),
+      arquivadoPor: actor?.actorId ?? 'sistema',
+    });
+  }
+
   // 1️⃣ Eliminar morador
   await deleteDoc(doc(db, 'moradores', id));
 
@@ -184,6 +198,69 @@ export const deleteMorador = async (
       entidadeTipo: 'morador',
     });
   }
+};
+
+/* =====================================================
+   ✅ ATUALIZAR STATUS DO MORADOR
+===================================================== */
+
+export type StatusMorador = 'ativo' | 'inadimplente' | 'ausente' | 'inativo';
+
+export const updateMoradorStatus = async (
+  id: string,
+  novoStatus: StatusMorador,
+  actor?: MoradorActor,
+) => {
+  await updateDoc(doc(db, 'moradores', id), {
+    status:    novoStatus,
+    updatedAt: serverTimestamp(),
+  });
+
+  if (actor) {
+    void logAudit({
+      actorId:      actor.actorId,
+      actorNome:    actor.actorNome,
+      actorRole:    actor.actorRole,
+      accao:        'morador_editado' as any,
+      categoria:    'moradores',
+      descricao:    `Estado do morador ${id} alterado para "${novoStatus}"`,
+      entidadeId:   id,
+      entidadeTipo: 'morador',
+      meta:         { novoStatus },
+    });
+  }
+};
+
+/* =====================================================
+   ✅ BUSCAR HISTÓRICO DE RESIDÊNCIA
+===================================================== */
+
+export interface HistoricoResidencia {
+  id: string;
+  moradorId: string;
+  nome: string;
+  email?: string;
+  telefone?: string;
+  tipo: 'proprietario' | 'inquilino';
+  unidadeId: string;
+  unidadeNumero?: string;
+  bloco?: string;
+  condominioId: string;
+  dataEntrada?: any;
+  dataSaida?: any;
+  arquivadoPor?: string;
+}
+
+export const getHistoricoResidencia = async (
+  condominioId: string,
+): Promise<HistoricoResidencia[]> => {
+  const snap = await getDocs(
+    query(
+      collection(db, 'historico_residencia'),
+      where('condominioId', '==', condominioId),
+    )
+  );
+  return snap.docs.map(d => ({ id: d.id, ...d.data() } as HistoricoResidencia));
 };
 
 /* =====================================================

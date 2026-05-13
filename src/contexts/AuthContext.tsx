@@ -37,6 +37,7 @@ export interface AuthContextType {
   loading: boolean;
   refreshUserData: () => Promise<void>;
 
+  isSuperAdmin: boolean;
   isAdmin: boolean;
   isGestor: boolean;
   isSindico: boolean;
@@ -82,7 +83,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [userData?.mustChangeCredentials, loading, pathname, router]);
 
-  const isAdmin       = userData?.role === 'admin';
+  const isSuperAdmin  = userData?.role === 'super_admin';
+  // isAdmin = true para super_admin E admin (retrocompatibilidade total)
+  const isAdmin       = isSuperAdmin || userData?.role === 'admin';
   const isGestor      = userData?.role === 'gestor';
   const isSindico     = userData?.role === 'sindico';
   const isFuncionario = userData?.role === 'funcionario';
@@ -90,13 +93,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const condominiosAcessiveis: string[] = (() => {
     if (!userData) return [];
-    if (isAdmin)  return [];
-    if (isGestor) return userData.condominiosGeridos ?? [];
+    if (isSuperAdmin) return [];   // super_admin vê tudo — sem restrição
+    // admin e gestor: limitados ao seu portfólio (condominiosGeridos)
+    if (isAdmin || isGestor) return userData.condominiosGeridos ?? [];
     if (userData.condominioId) return [userData.condominioId];
     return [];
   })();
 
-  const isMultiCondominio = isAdmin || condominiosAcessiveis.length > 1;
+  // super_admin vê tudo; admin e gestor com >1 condo também são multi
+  const isMultiCondominio = isSuperAdmin || condominiosAcessiveis.length > 1;
 
   const condominioIdPrincipal: string | undefined = (() => {
     if (!userData) return undefined;
@@ -113,6 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const value: AuthContextType = {
     ...auth,
+    isSuperAdmin,
     isAdmin,
     isGestor,
     isSindico,

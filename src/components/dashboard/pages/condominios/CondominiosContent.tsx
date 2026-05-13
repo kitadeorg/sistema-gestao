@@ -37,6 +37,7 @@ export default function CondominiosContent() {
     isAdmin,
     isGestor,
     condominiosAcessiveis,
+    refreshUserData,
   } = useAuthContext();
 
   // Admin e Gestor têm acesso — cada um vê os seus condomínios
@@ -59,9 +60,15 @@ export default function CondominiosContent() {
     try {
       let data: Condominio[] = [];
 
-      if (isAdmin) {
-        // Admin vê tudo
+      if (isAdmin && userData?.role === 'super_admin') {
+        // super_admin vê todos
         data = await getCondominios();
+      } else if (isAdmin && condominiosAcessiveis.length > 0) {
+        // admin scoped — só os seus condomínios
+        data = await getCondominiosByIds(condominiosAcessiveis);
+      } else if (isAdmin && condominiosAcessiveis.length === 0) {
+        // admin sem condomínios atribuídos
+        data = [];
       } else if (isGestor && condominiosAcessiveis.length > 0) {
         // Gestor vê apenas o seu portfólio
         data = await getCondominiosByIds(condominiosAcessiveis);
@@ -73,7 +80,7 @@ export default function CondominiosContent() {
     } finally {
       setLoading(false);
     }
-  }, [canAccess, isAdmin, isGestor, condominiosAcessiveis]);
+  }, [canAccess, isAdmin, isGestor, condominiosAcessiveis, userData?.role]);
 
   useEffect(() => {
     if (!authLoading && userData) {
@@ -142,9 +149,17 @@ export default function CondominiosContent() {
     setEditingCondominio(null);
   };
 
-  const handleSuccess = () => {
+  // wasCreated=true quando é criação nova (admin precisa de refrescar o auth
+  // para obter o condominiosGeridos atualizado antes de buscar os condomínios)
+  const handleSuccess = async (wasCreated = false) => {
     handleClosePanel();
-    fetchCondominios();
+    if (wasCreated && userData?.role === 'admin') {
+      // Refrescar userData para obter o novo condominiosGeridos do Firestore
+      await refreshUserData();
+      // fetchCondominios vai ser re-disparado pelo useEffect que depende de condominiosAcessiveis
+    } else {
+      fetchCondominios();
+    }
   };
 
   // ── KPIs ──
@@ -184,8 +199,10 @@ export default function CondominiosContent() {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-zinc-900">Condomínios</h1>
           <p className="text-sm text-zinc-500 mt-1">
-            {isAdmin
+            {userData?.role === 'super_admin'
               ? 'Gerir todos os condomínios da plataforma'
+              : isAdmin
+              ? `Os seus condomínios — ${counts.total} condomínio(s)`
               : `O seu portfólio — ${counts.total} condomínio(s)`}
           </p>
         </div>

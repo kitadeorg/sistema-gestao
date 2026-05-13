@@ -6,13 +6,15 @@
 
 /**
  * Hierarquia de acesso (do mais privilegiado para o menos):
- *  admin            → Super Admin (empresa gestora) — acesso total
+ *  super_admin      → Dono da plataforma — acesso total, pode gerir admins
+ *  admin            → Administrador da empresa gestora — acesso total exceto gerir super_admin
  *  gestor           → Gestor de Portfólio — gere múltiplos condomínios
  *  sindico          → Síndico — gere um único condomínio
  *  funcionario      → Funcionário operacional (porteiro, manutenção…)
  *  morador          → Morador — acesso apenas ao seu apartamento
  */
 export type UserRole =
+  | 'super_admin'
   | 'admin'
   | 'gestor'
   | 'sindico'

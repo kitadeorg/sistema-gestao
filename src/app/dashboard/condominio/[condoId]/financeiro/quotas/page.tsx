@@ -21,6 +21,7 @@ import {
   Loader2, DollarSign, Users, TrendingDown, X, Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Pagination, { usePagination } from '@/components/ui/Pagination';
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -240,6 +241,10 @@ export default function QuotasPage() {
       q.unidadeNumero.toLowerCase().includes(search.toLowerCase()))
   );
 
+  const { paged: quotasPaged, page: qPage, setPage: setQPage, totalPages: qTotalPages,
+          totalItems: qTotal, pageSize: qPageSize, start: qStart, end: qEnd } =
+    usePagination(quotasFiltradas, 20);
+
   const jaGeradas = (resumo?.quotas.length ?? 0) > 0;
 
   return (
@@ -436,13 +441,13 @@ export default function QuotasPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100">
-                {quotasFiltradas.length === 0 ? (
+                {quotasPaged.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-4 py-10 text-center text-sm text-zinc-400">
                       Nenhuma quota encontrada.
                     </td>
                   </tr>
-                ) : quotasFiltradas.map(q => (
+                ) : quotasPaged.map(q => (
                   <tr key={q.id} className={cn(
                     'hover:bg-zinc-50/60 transition-colors',
                     q.status === 'atrasado' && 'bg-red-50/30',
@@ -494,7 +499,7 @@ export default function QuotasPage() {
 
           {/* Cards mobile */}
           <div className="md:hidden space-y-3">
-            {quotasFiltradas.map(q => (
+            {quotasPaged.map(q => (
               <div key={q.id} className={cn(
                 'bg-white border rounded-2xl p-4 shadow-sm',
                 q.status === 'atrasado' ? 'border-red-200' : 'border-zinc-200',
@@ -535,6 +540,15 @@ export default function QuotasPage() {
               </div>
             ))}
           </div>
+
+          {/* Paginação */}
+          <Pagination
+            currentPage={qPage}
+            totalPages={qTotalPages}
+            onPageChange={setQPage}
+            itemsPerPage={qPageSize}
+            totalItems={qTotal}
+          />
         </>
       )}
     </main>

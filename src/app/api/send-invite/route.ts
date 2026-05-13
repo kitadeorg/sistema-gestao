@@ -77,7 +77,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true });
 
   } catch (err: any) {
-    console.error('[send-invite]  Nodemailer error:', {
+    console.error('[send-invite]  Nodemailer erro de node:', {
       message: err.message,
       code:    err.code,
     });
@@ -97,7 +97,7 @@ function buildEmailHtml(p: {
   email: string;
   username: string;
   password: string;
-  role: string;
+  role: string
   appUrl: string;
 }) {
   return `

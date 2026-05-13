@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useRef, useEffect } from 'react';
+import Pagination, { usePagination } from '@/components/ui/Pagination';
 
 /* ── Tabela de performance por condomínio ── */
 function CondominiosPerformanceTable({
@@ -32,6 +33,9 @@ function CondominiosPerformanceTable({
 
   // Ordenar por receita desc
   const sorted = [...condominios].sort((a, b) => b.receita - a.receita);
+
+  // Paginação
+  const { paged, page, setPage, totalPages, totalItems, pageSize } = usePagination(sorted, 10);
 
   return (
     <div className="space-y-3">
@@ -58,9 +62,9 @@ function CondominiosPerformanceTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
-            {sorted.map((c, i) => {
+            {paged.map((c, i) => {
               const isTop  = i === 0 && c.receita > 0;
-              const isLast = i === sorted.length - 1 && sorted.length > 1;
+              const isLast = i === paged.length - 1 && paged.length > 1;
               return (
                 <tr key={c.id} className="hover:bg-zinc-50/60 transition-colors">
                   <td className="px-4 py-3 text-sm text-zinc-400 font-medium">
@@ -104,7 +108,7 @@ function CondominiosPerformanceTable({
 
       {/* Mobile cards */}
       <div className="md:hidden space-y-3">
-        {sorted.map((c, i) => (
+        {paged.map((c, i) => (
           <div key={c.id} className="bg-white border border-zinc-200 rounded-2xl p-4">
             <div className="flex items-center justify-between mb-3">
               <p className="font-semibold text-zinc-900 text-sm">{c.nome}</p>
@@ -124,6 +128,15 @@ function CondominiosPerformanceTable({
           </div>
         ))}
       </div>
+
+      {/* Paginação */}
+      <Pagination
+        currentPage={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        itemsPerPage={pageSize}
+        totalItems={totalItems}
+      />
     </div>
   );
 }
@@ -204,10 +217,17 @@ export default function DashboardAdminContent() {
     return d;
   }, []);
 
+  // super_admin → condominiosGeridos undefined (vê tudo)
+  // admin scoped → passa o array do portfólio
+  const condominiosGeridos = userData?.role === 'super_admin'
+    ? undefined
+    : userData?.condominiosGeridos;
+
   const { data, loading, error } = useAdminDashboard({
     startDate,
     endDate,
     selectedCondo,
+    condominiosGeridos,
   });
 
   const ocupacaoMedia = useMemo(() => {

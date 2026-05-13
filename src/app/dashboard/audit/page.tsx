@@ -8,6 +8,7 @@ import {
   DollarSign, Users, Bell, Building2, LogIn, Home, Eye,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Pagination, { usePagination } from '@/components/ui/Pagination';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -66,24 +67,101 @@ export default function AuditPage() {
   const [categoria, setCategoria] = useState<AuditCategoria | 'todas'>('todas');
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const canAccess = userData?.role === 'admin' || userData?.role === 'gestor';
+  const canAccess = userData?.role === 'admin'
+    || userData?.role === 'super_admin'
+    || userData?.role === 'gestor';
+
+  // admin scoped: só vê os seus próprios logs + logs dos seus condomínios
+  const isScopedAdmin      = userData?.role === 'admin';
+  const condominiosGeridos = userData?.condominiosGeridos ?? [];
+  const adminUid           = userData?.uid ?? '';
 
   const fetchLogs = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await getAuditLogs({
-        pageSize: 100,
-        ...(categoria !== 'todas' ? { categoria } : {}),
-      });
-      setLogs(data);
+      if (isScopedAdmin) {
+        // Duas queries em paralelo:
+        // 1. Logs onde o admin é o actor (as suas próprias acções)
+        // 2. Logs dos seus condomínios (acções de outros nos seus condomínios)
+        const promises: Promise<AuditLog[]>[] = [
+          getAuditLogs({
+            actorId:  adminUid,
+            pageSize: 100,
+            ...(categoria !== 'todas' ? { categoria } : {}),
+          }),
+        ];
+
+        // Adicionar uma query por cada condomínio gerido
+        for (const condoId of condominiosGeridos) {
+          promises.push(
+            getAuditLogs({
+              condominioId: condoId,
+              pageSize:     50,
+              ...(categoria !== 'todas' ? { categoria } : {}),
+            })
+          );
+        }
+
+        const resultados = await Promise.all(promises);
+
+        // Fundir sem duplicados, ordenar por data desc
+        const mapa = new Map<string, AuditLog>();
+        for (const lista of resultados) {
+          for (const log of lista) mapa.set(log.id, log);
+        }
+        const merged = Array.from(mapa.values()).sort((a, b) => {
+          const ta = a.createdAt?.toDate?.()?.getTime() ?? 0;
+          const tb = b.createdAt?.toDate?.()?.getTime() ?? 0;
+          return tb - ta;
+        });
+        setLogs(merged.slice(0, 150));
+      } else if (userData?.role === 'gestor') {
+        // gestor — só logs dos seus condomínios
+        const gestorCondos = userData?.condominiosGeridos ?? [];
+        const promises: Promise<AuditLog[]>[] = gestorCondos.map(condoId =>
+          getAuditLogs({
+            condominioId: condoId,
+            pageSize: 50,
+            ...(categoria !== 'todas' ? { categoria } : {}),
+          })
+        );
+        const resultados = await Promise.all(promises);
+        const mapa = new Map<string, AuditLog>();
+        for (const lista of resultados) {
+          for (const log of lista) mapa.set(log.id, log);
+        }
+        const merged = Array.from(mapa.values()).sort((a, b) => {
+          const ta = a.createdAt?.toDate?.()?.getTime() ?? 0;
+          const tb = b.createdAt?.toDate?.()?.getTime() ?? 0;
+          return tb - ta;
+        });
+        setLogs(merged.slice(0, 100));
+      } else {
+        // super_admin — sem filtro
+        const data = await getAuditLogs({
+          pageSize: 100,
+          ...(categoria !== 'todas' ? { categoria } : {}),
+        });
+        setLogs(data);
+      }
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
-  }, [categoria]);
+  }, [categoria, isScopedAdmin, adminUid, condominiosGeridos.join(',')]);
 
   useEffect(() => { if (canAccess) fetchLogs(); }, [fetchLogs, canAccess]);
+
+  const filtered = logs.filter(l =>
+    (search === '' ||
+      l.descricao.toLowerCase().includes(search.toLowerCase()) ||
+      l.actorNome.toLowerCase().includes(search.toLowerCase()) ||
+      l.accao.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  // usePagination deve estar antes de qualquer early return (Rules of Hooks)
+  const { paged, page, setPage, totalPages, totalItems, pageSize } = usePagination(filtered, 20);
 
   if (!canAccess) {
     return (
@@ -94,13 +172,6 @@ export default function AuditPage() {
       </div>
     );
   }
-
-  const filtered = logs.filter(l =>
-    (search === '' ||
-      l.descricao.toLowerCase().includes(search.toLowerCase()) ||
-      l.actorNome.toLowerCase().includes(search.toLowerCase()) ||
-      l.accao.toLowerCase().includes(search.toLowerCase()))
-  );
 
   const categorias: { key: AuditCategoria | 'todas'; label: string }[] = [
     { key: 'todas',       label: 'Todas'        },
@@ -211,7 +282,7 @@ export default function AuditPage() {
       ) : (
         <div className="bg-white border border-zinc-200 rounded-2xl shadow-sm overflow-hidden">
           <div className="divide-y divide-zinc-100">
-            {filtered.map(log => (
+            {paged.map(log => (
               <div key={log.id} className="hover:bg-zinc-50/60 transition-colors">
                 <div
                   className="flex items-start gap-4 px-4 py-3.5 cursor-pointer"
@@ -266,6 +337,17 @@ export default function AuditPage() {
                 )}
               </div>
             ))}
+          </div>
+
+          {/* Paginação */}
+          <div className="px-4 py-4 border-t border-zinc-100">
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              itemsPerPage={pageSize}
+              totalItems={totalItems}
+            />
           </div>
         </div>
       )}

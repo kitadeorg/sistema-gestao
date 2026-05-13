@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Clock,
   Globe,
+  BarChart3,
 } from 'lucide-react';
 
 import GestorKPIs            from './GestorKPIs';
@@ -62,23 +63,123 @@ function LoadingSkeleton() {
 }
 
 /* ─────────────────────────────────────────────
-   EMPTY STATE
+   EMPTY STATE — ONBOARDING
 ───────────────────────────────────────────── */
 
 function EmptyPortfolio() {
+  const passos = [
+    {
+      num: '1',
+      titulo: 'Conta criada',
+      desc: 'O seu acesso à plataforma está activo.',
+      feito: true,
+    },
+    {
+      num: '2',
+      titulo: 'Associação de condomínios',
+      desc: 'O administrador irá associar os condomínios ao seu portfólio.',
+      feito: false,
+    },
+    {
+      num: '3',
+      titulo: 'Gestão completa',
+      desc: 'Aceda a KPIs, fluxo de caixa, moradores e muito mais.',
+      feito: false,
+    },
+  ];
+
+  const funcionalidades = [
+    {
+      icon: <BarChart3 className="w-5 h-5 text-orange-500" />,
+      titulo: 'Dashboard consolidado',
+      desc: 'KPIs financeiros de todo o portfólio numa só vista.',
+    },
+    {
+      icon: <TrendingUp className="w-5 h-5 text-emerald-500" />,
+      titulo: 'Fluxo de caixa',
+      desc: 'Receitas e despesas por período, com comparativos.',
+    },
+    {
+      icon: <AlertTriangle className="w-5 h-5 text-amber-500" />,
+      titulo: 'Alertas de inadimplência',
+      desc: 'Identifique moradores em atraso em tempo real.',
+    },
+    {
+      icon: <Clock className="w-5 h-5 text-blue-500" />,
+      titulo: 'Ocorrências e manutenção',
+      desc: 'Acompanhe pedidos e intervenções em todos os condomínios.',
+    },
+  ];
+
   return (
-    <div className="flex flex-col items-center justify-center py-24 gap-4">
-      <div className="w-16 h-16 bg-orange-50 rounded-2xl flex items-center justify-center">
-        <Building2 className="w-8 h-8 text-orange-400" />
+    <div className="space-y-8 animate-in fade-in duration-500">
+
+      {/* Hero */}
+      <div className="bg-gradient-to-br from-orange-50 to-amber-50 border border-orange-100 rounded-3xl p-8 sm:p-10 text-center space-y-4">
+        <div className="w-16 h-16 bg-white border border-orange-200 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
+          <Building2 className="w-8 h-8 text-orange-500" />
+        </div>
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-zinc-900">
+            Bem-vindo à sua área de gestão
+          </h2>
+          <p className="text-zinc-500 mt-2 max-w-md mx-auto text-sm sm:text-base">
+            A sua conta está pronta. Assim que o administrador associar condomínios ao seu portfólio, terá acesso completo a todas as ferramentas de gestão.
+          </p>
+        </div>
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-orange-200 rounded-full text-sm text-orange-700 font-medium shadow-sm">
+          <span className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
+          A aguardar associação de condomínios
+        </div>
       </div>
-      <div className="text-center">
-        <h3 className="text-lg font-semibold text-zinc-800 mb-1">
-          Nenhum condomínio no portfólio
+
+      {/* Passos */}
+      <div className="bg-white border border-zinc-200 rounded-2xl p-6 shadow-sm space-y-4">
+        <h3 className="text-sm font-semibold text-zinc-700">Próximos passos</h3>
+        <div className="space-y-3">
+          {passos.map((passo, i) => (
+            <div key={i} className="flex items-start gap-4">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-bold mt-0.5 ${
+                passo.feito
+                  ? 'bg-emerald-500 text-white'
+                  : 'bg-zinc-100 text-zinc-400 border border-zinc-200'
+              }`}>
+                {passo.feito ? '✓' : passo.num}
+              </div>
+              <div>
+                <p className={`text-sm font-semibold ${passo.feito ? 'text-zinc-700' : 'text-zinc-400'}`}>
+                  {passo.titulo}
+                </p>
+                <p className="text-xs text-zinc-400 mt-0.5">{passo.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Funcionalidades disponíveis */}
+      <div className="space-y-3">
+        <h3 className="text-sm font-semibold text-zinc-500 uppercase tracking-wide">
+          O que terá disponível
         </h3>
-        <p className="text-sm text-zinc-500 max-w-xs">
-          Contacte o administrador para associar condomínios à sua conta.
-        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {funcionalidades.map((f, i) => (
+            <div key={i} className="bg-white border border-zinc-200 rounded-2xl p-4 shadow-sm flex items-start gap-3">
+              <div className="w-9 h-9 bg-zinc-50 rounded-xl flex items-center justify-center shrink-0">
+                {f.icon}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-zinc-700">{f.titulo}</p>
+                <p className="text-xs text-zinc-400 mt-0.5">{f.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
+
+      <p className="text-xs text-zinc-400 text-center">
+        Contacte o administrador da plataforma para acelerar o processo de associação.
+      </p>
     </div>
   );
 }
