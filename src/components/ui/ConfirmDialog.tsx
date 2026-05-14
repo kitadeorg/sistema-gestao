@@ -1,6 +1,8 @@
 'use client';
 
-import { LogOut, X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { LogOut } from 'lucide-react';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -25,16 +27,25 @@ export function ConfirmDialog({
   loading = false,
   variant = 'danger',
 }: ConfirmDialogProps) {
+  // Fechar com Escape
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [open, onCancel]);
+
   if (!open) return null;
 
-  return (
-    /* Overlay */
+  // Portal — renderiza directamente no <body>, fora de qualquer stacking context
+  return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      className="fixed inset-0 flex items-center justify-center p-4"
+      style={{ zIndex: 99999 }}
       onClick={onCancel}
     >
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" />
+      {/* Backdrop cobre TUDO incluindo header e sidebar */}
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" />
 
       {/* Card */}
       <div
@@ -79,6 +90,7 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

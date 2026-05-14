@@ -38,7 +38,7 @@ export function Sidebar({ isSidebarCollapsed = false }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'h-full w-full flex flex-col overflow-hidden',
+        'h-full w-full flex flex-col',
         'theme-bg-surface theme-text border-r theme-border',
       )}
     >

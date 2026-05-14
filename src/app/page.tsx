@@ -444,14 +444,14 @@ function Footer() {
   return (
     <footer className="bg-zinc-950 text-zinc-500 py-8 sm:py-12 px-4 sm:px-6">
       <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-        <Image src="/logo.svg" alt="CONDO." width={100} height={24} className="h-6 w-auto opacity-60" />
+        <Image src="/logo.svg" alt="CONDO." width={100} height={24} className="h-6 w-auto" style={{ filter: 'brightness(0) invert(1)' }} />
         <p className="text-xs text-center sm:text-left">
           © {new Date().getFullYear()} CONDO. — Sistema de Gestão de Condomínios
         </p>
         <div className="flex gap-4 text-xs">
           <a href="#" className="hover:text-zinc-300 transition-colors">Privacidade</a>
           <a href="#" className="hover:text-zinc-300 transition-colors">Termos</a>
-          <a href="#" className="hover:text-zinc-300 transition-colors">Contacto</a>
+          <Link href="/manual" className="hover:text-zinc-300 transition-colors">Manual</Link>
         </div>
       </div>
     </footer>

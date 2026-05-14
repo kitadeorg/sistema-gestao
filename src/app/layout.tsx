@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Netsul-CONDO.",
+  title: "CONDO.",
   description: "Sistema de gestão de condomínios",
 };
 

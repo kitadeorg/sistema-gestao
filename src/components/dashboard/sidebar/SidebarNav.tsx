@@ -290,10 +290,15 @@ export default function SidebarNav({
 
   const isLinkActive = (href: string, activePaths: string[] = []): boolean => {
     if (href === '/dashboard') return pathname === '/dashboard';
+    if (href === '#') return false;
+    // Match exato primeiro
     if (pathname === href) return true;
+    // activePaths: match exato ou sub-rota directa (com /)
     return activePaths.some((path) => {
       if (path === '/dashboard') return pathname === '/dashboard';
-      return pathname === path || pathname.startsWith(path + '/');
+      // Só marca como ativo se for exatamente o path ou uma sub-rota dele
+      // mas NÃO marca o pai quando estamos numa sub-rota diferente
+      return pathname === path;
     });
   };
 
@@ -301,7 +306,7 @@ export default function SidebarNav({
     <nav className={[
       'flex-1 px-3 py-5 overflow-y-auto',
       'theme-bg-surface theme-text',
-      'scrollbar-thin scrollbar-thumb-zinc-200 scrollbar-track-transparent',
+      '[&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]',
     ].join(' ')}>
       {currentNavConfig.map((section) => {
         if (!section.items.length) return null;

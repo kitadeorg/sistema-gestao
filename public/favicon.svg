@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 306 306">
+  <!-- Fundo laranja arredondado -->
+  <rect width="306" height="306" rx="68" fill="#FF6600"/>
+  <!-- Símbolo branco — letra C estilizada do logo -->
+  <path d="M153 56 C100 56 58 98 58 153 C58 208 100 250 153 250 C180 250 204 239 221 221 L195 195 C183 208 169 215 153 215 C120 215 93 188 93 153 C93 118 120 91 153 91 C169 91 183 98 195 111 L221 85 C204 67 180 56 153 56 Z" fill="white"/>
+</svg>
