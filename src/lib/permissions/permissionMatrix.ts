@@ -80,7 +80,7 @@ const permissionMatrix: Record<Role, Partial<Record<Resource, Action[]>>> = {
   gestor: {
     condominio:   ['view', 'create', 'update'],
     unidade:      ['view', 'create', 'update'],
-    morador:      ['view', 'create', 'update'],
+    morador:      ['view', 'create', 'update', 'delete'],
     pagamento:    ['view', 'create', 'update', 'approve'],
     financeiro:   ['view'],
     inadimplencia:['view', 'create', 'update'],
@@ -96,7 +96,7 @@ const permissionMatrix: Record<Role, Partial<Record<Resource, Action[]>>> = {
   sindico: {
     condominio:   ['view', 'update'],
     unidade:      ['view', 'create', 'update'],
-    morador:      ['view', 'create', 'update'],
+    morador:      ['view', 'create', 'update', 'delete'],
     pagamento:    ['view', 'create', 'update'],
     financeiro:   ['view'],
     inadimplencia:['view', 'create'],

@@ -22,6 +22,7 @@ import {
   Megaphone,
   FolderOpen,
   Vote,
+  TrendingDown,
 } from 'lucide-react';import NavSection from './NavSection';
 import NavItem from './NavItem';
 import ExpandableNavItem from './ExpandableNavItem';
@@ -128,6 +129,12 @@ const navConfig: Record<string, (selectedCondo?: string) => NavConfig> = {
           icon: Receipt,
           label: 'Pagamentos',
           activePaths: [`/dashboard/condominio/${selectedCondo}/financeiro/pagamentos`],
+        },
+        {
+          href: `/dashboard/condominio/${selectedCondo}/financeiro/despesas`,
+          icon: TrendingDown,
+          label: 'Despesas',
+          activePaths: [`/dashboard/condominio/${selectedCondo}/financeiro/despesas`],
         },
         {
           href: `/dashboard/condominio/${selectedCondo}/financeiro/inadimplencia`,

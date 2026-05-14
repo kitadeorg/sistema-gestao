@@ -365,9 +365,13 @@ export async function updateUser(userId: string, data: UpdateUserData): Promise<
 
 /**
  * Eliminar utilizador.
- * ✅ Apaga de `usuarios`.
- * ✅ Apaga também de `usuarios_pre_registro` se existir.
- * ❌ Bloqueia eliminação de utilizadores com role 'admin'.
+ *
+ * Regras de permissão:
+ *  - super_admin → pode apagar qualquer utilizador excepto outro super_admin
+ *  - admin       → pode apagar gestor, síndico, funcionário, morador dos seus condomínios
+ *                  NÃO pode apagar outros admins nem super_admin
+ *                  NÃO pode apagar a si próprio
+ *  - outros      → não podem apagar ninguém (bloqueado na UI, mas validado aqui também)
  */
 export async function deleteUser(
   userId: string,
@@ -375,8 +379,24 @@ export async function deleteUser(
 ): Promise<void> {
   const usuario = await getUserById(userId);
 
-  if (usuario?.role === 'admin' || usuario?.role === 'super_admin') {
-    throw new Error('Não é permitido eliminar uma conta de Administrador ou Super Administrador.');
+  // Nunca apagar super_admin
+  if (usuario?.role === 'super_admin') {
+    throw new Error('Não é permitido eliminar uma conta de Super Administrador.');
+  }
+
+  // Admin não pode apagar outro admin
+  if (actor?.actorRole === 'admin' && usuario?.role === 'admin') {
+    throw new Error('Um Administrador não pode eliminar outro Administrador.');
+  }
+
+  // Ninguém pode apagar a si próprio
+  if (actor?.actorId === userId) {
+    throw new Error('Não é possível eliminar a sua própria conta.');
+  }
+
+  // Apenas super_admin e admin podem apagar
+  if (actor && actor.actorRole !== 'super_admin' && actor.actorRole !== 'admin') {
+    throw new Error('Não tem permissão para eliminar utilizadores.');
   }
 
   // Deletar do Firestore

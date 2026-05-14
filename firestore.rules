@@ -433,10 +433,16 @@ service cloud.firestore {
                         || isFuncionarioDoCondominio(request.resource.data.condominioId)
                         || isMoradorDoCondominio(request.resource.data.condominioId));
 
+      // Admin/gestor/síndico: gestão total
+      // Funcionário: regista entradas e saídas na portaria
+      // Morador: pode registar saída dos seus próprios visitantes
       allow update: if myDocExists()
-                    && (hasCondoAccess(resource.data.condominioId)
-                        || isFuncionarioDoCondominio(resource.data.condominioId))
-                    && (isAdminOrGestor() || myRole() == 'sindico' || myRole() == 'funcionario');
+                    && resource.data.condominioId == request.resource.data.condominioId
+                    && (
+                      hasCondoAccess(resource.data.condominioId)
+                      || isFuncionarioDoCondominio(resource.data.condominioId)
+                      || isMoradorDoCondominio(resource.data.condominioId)
+                    );
 
       allow delete: if myDocExists()
                     && hasCondoAccess(resource.data.condominioId)
@@ -564,9 +570,10 @@ service cloud.firestore {
                     && request.resource.data.condominioId == resource.data.condominioId
                     && (isAdminOrGestor() || myRole() == 'sindico');
 
+      // Síndico pode eliminar documentos do seu condomínio
       allow delete: if myDocExists()
                     && hasCondoAccess(resource.data.condominioId)
-                    && isAdmin();
+                    && (isAdminOrGestor() || myRole() == 'sindico');
     }
 
     // ── ASSEMBLEIAS ──────────────────────────────────────────────────────────
@@ -582,10 +589,18 @@ service cloud.firestore {
                     && hasCondoAccess(request.resource.data.condominioId)
                     && (isAdminOrGestor() || myRole() == 'sindico');
 
+      // Admins/gestores/síndicos gerem a assembleia;
+      // moradores podem fazer update para registar o seu voto (array pauta)
       allow update: if myDocExists()
-                    && hasCondoAccess(resource.data.condominioId)
-                    && request.resource.data.condominioId == resource.data.condominioId
-                    && (isAdminOrGestor() || myRole() == 'sindico');
+                    && (
+                      // Gestão normal (síndico, admin, gestor)
+                      (hasCondoAccess(resource.data.condominioId)
+                       && (isAdminOrGestor() || myRole() == 'sindico'))
+                      ||
+                      // Morador a votar — só pode se a assembleia for do seu condomínio
+                      (isMoradorDoCondominio(resource.data.condominioId)
+                       && resource.data.condominioId == request.resource.data.condominioId)
+                    );
 
       allow delete: if myDocExists()
                     && hasCondoAccess(resource.data.condominioId)

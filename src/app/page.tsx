@@ -60,10 +60,6 @@ function Navbar({ onCta }: { onCta: () => void }) {
             className="px-5 py-2.5 text-sm font-semibold text-zinc-700 hover:text-zinc-900 transition-colors">
             Entrar
           </button>
-          <button onClick={onCta}
-            className="px-5 py-2.5 bg-zinc-900 text-white text-sm font-semibold rounded-xl hover:bg-zinc-800 transition-colors">
-            Começar agora
-          </button>
         </div>
 
         {/* Hamburger mobile */}
@@ -418,7 +414,7 @@ function Pricing({ onCta }: { onCta: () => void }) {
 // CTA FINAL
 // ─────────────────────────────────────────────
 
-function CtaSection({ onCta }: { onCta: () => void }) {
+/* function CtaSection({ onCta }: { onCta: () => void }) {
   return (
     <section className="py-16 sm:py-24 px-4 sm:px-6 bg-zinc-900">
       <div className="max-w-3xl mx-auto text-center space-y-6 sm:space-y-8">
@@ -438,7 +434,7 @@ function CtaSection({ onCta }: { onCta: () => void }) {
       </div>
     </section>
   );
-}
+} */
 
 // ─────────────────────────────────────────────
 // FOOTER
@@ -498,7 +494,6 @@ export default function HomePage() {
       <Hero onCta={goToAuth} />
       <Features />
       <HowItWorks />
-      <CtaSection onCta={goToAuth} />
       <Footer />
     </div>
   );

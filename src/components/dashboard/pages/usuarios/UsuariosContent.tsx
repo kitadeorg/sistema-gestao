@@ -105,15 +105,31 @@ export default function UsuariosContent() {
   };
 
   const handleDelete = async (userId: string) => {
-    // Só super_admin pode eliminar utilizadores
-    if (!isSuperAdmin) {
-      toast.error('Apenas o Super Administrador pode eliminar utilizadores.');
+    const actorRole = userData?.role;
+
+    // Apenas super_admin e admin podem eliminar
+    if (actorRole !== 'super_admin' && actorRole !== 'admin') {
+      toast.error('Não tem permissão para eliminar utilizadores.');
       return;
     }
 
     const target = users.find(u => u.id === userId);
+
+    // Ninguém apaga super_admin
     if (target?.role === 'super_admin') {
       toast.error('Não é permitido eliminar uma conta de Super Administrador.');
+      return;
+    }
+
+    // Admin não apaga outro admin
+    if (actorRole === 'admin' && target?.role === 'admin') {
+      toast.error('Um Administrador não pode eliminar outro Administrador.');
+      return;
+    }
+
+    // Ninguém apaga a si próprio
+    if (userId === userData?.uid) {
+      toast.error('Não pode eliminar a sua própria conta.');
       return;
     }
 

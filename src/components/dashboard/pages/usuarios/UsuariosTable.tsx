@@ -149,14 +149,15 @@ export default function UsuariosTable({
   const { user: firebaseUser, userData } = useAuthContext();
   const { paged, page, setPage, totalPages, totalItems, pageSize, start, end } = usePagination(users, 15);
 
-  const isAdmin    = userData?.role === 'admin';
-  const currentUid = firebaseUser?.uid;
+  const isAdmin      = userData?.role === 'admin';
+  const isSuperAdmin = userData?.role === 'super_admin';
+  const currentUid   = firebaseUser?.uid;
 
   if (loading) return <LoadingSkeleton />;
 
   return (
     <div className="space-y-3">
-      {!isAdmin && (
+      {!isAdmin && !isSuperAdmin && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Apenas <b>Administradores</b> podem atribuir permissões, editar, desativar ou eliminar utilizadores.
         </div>
@@ -185,11 +186,13 @@ export default function UsuariosTable({
               </tr>
             ) : (
               paged.map((u) => {
-                const isSelf     = !!currentUid && u.id === currentUid;
-                const isAdminRow = u.role === 'admin';
-                const canManage  = isAdmin;
-                const canDelete  = canManage && !isSelf && !isAdminRow;
-                const canToggle  = canManage && !isSelf && !isAdminRow;
+                const isSelf      = !!currentUid && u.id === currentUid;
+                const isAdminRow  = u.role === 'admin';
+                const isSuperRow  = u.role === 'super_admin';
+                const canManage   = isAdmin || isSuperAdmin;
+                // super_admin pode apagar admins; admin não pode apagar outros admins
+                const canDelete   = canManage && !isSelf && !isSuperRow && !(isAdmin && isAdminRow);
+                const canToggle   = canManage && !isSelf && !isSuperRow;
                 const toggleLabel = u.status === 'ativo' ? 'Desativar' : 'Ativar';
 
                 // Linha com fundo suave se e-mail problemático
@@ -280,11 +283,13 @@ export default function UsuariosTable({
                           title={
                             canDelete
                               ? 'Eliminar'
-                              : isAdminRow
-                                ? 'Não é permitido eliminar Administradores'
-                                : isSelf
-                                  ? 'Não pode eliminar a sua própria conta'
-                                  : 'Apenas admin'
+                              : isSuperRow
+                                ? 'Não é permitido eliminar Super Administradores'
+                                : isAdmin && isAdminRow
+                                  ? 'Administradores não podem eliminar outros Administradores'
+                                  : isSelf
+                                    ? 'Não pode eliminar a sua própria conta'
+                                    : 'Apenas admin'
                           }
                         >
                           <Trash2 size={16} />
@@ -308,11 +313,12 @@ export default function UsuariosTable({
           </div>
         ) : (
           paged.map((u) => {
-            const isSelf     = !!currentUid && u.id === currentUid;
-            const isAdminRow = u.role === 'admin';
-            const canManage  = isAdmin;
-            const canDelete  = canManage && !isSelf && !isAdminRow;
-            const canToggle  = canManage && !isSelf && !isAdminRow;
+            const isSelf      = !!currentUid && u.id === currentUid;
+            const isAdminRow  = u.role === 'admin';
+            const isSuperRow  = u.role === 'super_admin';
+            const canManage   = isAdmin || isSuperAdmin;
+            const canDelete   = canManage && !isSelf && !isSuperRow && !(isAdmin && isAdminRow);
+            const canToggle   = canManage && !isSelf && !isSuperRow;
             const toggleLabel = u.status === 'ativo' ? 'Desativar' : 'Ativar';
 
             const rowAlert =
