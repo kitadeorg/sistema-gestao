@@ -42,17 +42,17 @@
 }
 
 html {
-  /* Mobile: 14px base → tablet: 15px → desktop: 16px */
-  font-size: 87.5%;          /* 14px em mobile */
+  /* Mobile: 11px → tablet: 12px → desktop: 12px (~75% de 16px) */
+  font-size: 68.75%;          /* 11px em mobile */
   scroll-behavior: smooth;
 }
 
 @media (min-width: 640px) {
-  html { font-size: 93.75%; } /* 15px em tablet */
+  html { font-size: 75%; }    /* 12px em tablet */
 }
 
 @media (min-width: 1024px) {
-  html { font-size: 100%; }   /* 16px em desktop */
+  html { font-size: 75%; }    /* 12px em desktop — equivale a zoom 75% */
 }
 
 body {
