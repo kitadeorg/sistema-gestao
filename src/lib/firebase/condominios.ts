@@ -204,7 +204,7 @@ export const createCondominio = async (
  */
 export const updateCondominio = async (
   id: string,
-  data: CondominioFormData,
+  data: Partial<CondominioFormData>,
   actor?: CondominioActorInput,
 ): Promise<void> => {
   const condominioDoc = doc(db, 'condominios', id);
