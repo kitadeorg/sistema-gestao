@@ -30,12 +30,24 @@ type FormDataType = {
 const overlayVariants = { visible: { opacity: 1 }, hidden: { opacity: 0 }};
 const panelVariants = { visible: { x: 0 }, hidden: { x: '100%' }};
 
+// ── NIF Angola: exactamente 10 dígitos numéricos ──────────────────────────────
+function formatNIF(raw: string): string {
+    // Remove tudo que não seja dígito e limita a 10 caracteres
+    return raw.replace(/\D/g, '').slice(0, 10);
+}
+function validateNIF(value: string): string | null {
+    if (value === '') return null; // campo opcional
+    if (value.length !== 10) return `NIF incompleto — faltam ${10 - value.length} dígito${10 - value.length !== 1 ? 's' : ''}.`;
+    return null;
+}
+
 // --- Componente Principal ---
 const CondominioSidePanel: React.FC<SidePanelProps> = ({ isOpen, onClose, onSuccess, condominioData }) => {
     const { userData } = useAuthContext();
     const initialFormState: FormDataType = { nome: '', cnpj: '', rua: '', numero: '', bairro: '', cidade: '', provincia: '' };
     const [formData, setFormData] = useState<FormDataType>(initialFormState);
     const [isSaving, setIsSaving] = useState(false);
+    const [nifError, setNifError] = useState<string | null>(null);
     const [logoFile, setLogoFile] = useState<File | null>(null);
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -75,8 +87,17 @@ const CondominioSidePanel: React.FC<SidePanelProps> = ({ isOpen, onClose, onSucc
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    const handleNIFChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const masked = formatNIF(e.target.value);
+        setFormData(prev => ({ ...prev, cnpj: masked }));
+        setNifError(validateNIF(masked));
+    };
+
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
+        // Valida NIF antes de submeter
+        const nifErr = validateNIF(formData.cnpj);
+        if (nifErr) { setNifError(nifErr); return; }
         setIsSaving(true);
         try {
             let finalLogoUrl: string | undefined = condominioData?.logoUrl ?? undefined;
@@ -176,8 +197,50 @@ const CondominioSidePanel: React.FC<SidePanelProps> = ({ isOpen, onClose, onSucc
                                 <input type="text" name="nome" id="nome" value={formData.nome} onChange={handleChange} required className="text-black w-full pl-3 pr-3 py-2 mt-1 rounded-lg border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white" />
                             </div>
                             <div>
-                                <label htmlFor="cnpj" className="block text-sm font-medium text-gray-700">NIF</label>
-                                <input type="text" name="cnpj" id="cnpj" value={formData.cnpj} onChange={handleChange} className="text-black w-full pl-3 pr-3 py-2 mt-1 rounded-lg border border-zinc-200 text-sm focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white" />
+                                <label htmlFor="cnpj" className="block text-sm font-medium text-gray-700">
+                                    NIF <span className="text-zinc-400 font-normal">(opcional)</span>
+                                </label>
+                                <div className="relative mt-1">
+                                    <input
+                                        type="text"
+                                        name="cnpj"
+                                        id="cnpj"
+                                        value={formData.cnpj}
+                                        onChange={handleNIFChange}
+                                        inputMode="numeric"
+                                        maxLength={10}
+                                        placeholder="0000000000"
+                                        className={cn(
+                                            'text-black w-full pl-3 pr-16 py-2 rounded-lg border text-sm font-mono tracking-widest focus:outline-none focus:ring-2 bg-white transition-colors',
+                                            nifError
+                                                ? 'border-red-400 focus:ring-red-500/20 focus:border-red-500'
+                                                : formData.cnpj.length === 10
+                                                ? 'border-emerald-400 focus:ring-emerald-500/20 focus:border-emerald-500'
+                                                : 'border-zinc-200 focus:ring-orange-500/20 focus:border-orange-500',
+                                        )}
+                                    />
+                                    {/* Contador de dígitos */}
+                                    <span className={cn(
+                                        'absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold tabular-nums',
+                                        formData.cnpj.length === 10 ? 'text-emerald-500' : 'text-zinc-400',
+                                    )}>
+                                        {formData.cnpj.length}/10
+                                    </span>
+                                </div>
+                                {/* Mensagem de erro inline */}
+                                {nifError && (
+                                    <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
+                                        <span className="inline-flex w-3.5 h-3.5 rounded-full bg-red-500 text-white items-center justify-center text-[9px] font-black shrink-0">!</span>
+                                        {nifError}
+                                    </p>
+                                )}
+                                {/* Confirmação quando válido */}
+                                {!nifError && formData.cnpj.length === 10 && (
+                                    <p className="mt-1.5 text-xs text-emerald-600 flex items-center gap-1">
+                                        <span className="inline-flex w-3.5 h-3.5 rounded-full bg-emerald-500 text-white items-center justify-center text-[9px] font-black shrink-0">✓</span>
+                                        NIF válido
+                                    </p>
+                                )}
                             </div>
                         </div>
                         
