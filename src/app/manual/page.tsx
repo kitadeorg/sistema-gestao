@@ -138,6 +138,38 @@ const SECTIONS: Section[] = [
     subsections: [
       { id: 'condominio', title: 'Dados do condomínio' },
       { id: 'financeiras', title: 'Configurações financeiras' },
+      { id: 'notificacoes-config', title: 'Notificações automáticas' },
+    ],
+  },
+  {
+    id: 'portfolio',
+    title: 'Portfólio',
+    icon: BarChart3,
+    color: 'text-orange-500',
+    subsections: [
+      { id: 'portfolio-visao', title: 'Vista de portfólio' },
+      { id: 'portfolio-fluxo', title: 'Fluxo de caixa consolidado' },
+    ],
+  },
+  {
+    id: 'utilizadores-plataforma',
+    title: 'Utilizadores',
+    icon: UserCog,
+    color: 'text-blue-500',
+    subsections: [
+      { id: 'gerir-utilizadores', title: 'Gerir utilizadores' },
+      { id: 'convidar-utilizador', title: 'Convidar um utilizador' },
+      { id: 'estados-email', title: 'Estados de e-mail' },
+    ],
+  },
+  {
+    id: 'auditoria',
+    title: 'Auditoria',
+    icon: Shield,
+    color: 'text-zinc-500',
+    subsections: [
+      { id: 'registo-auditoria', title: 'Registo de auditoria' },
+      { id: 'categorias-auditoria', title: 'Categorias e filtros' },
     ],
   },
 ];
@@ -517,6 +549,175 @@ const CONTENT: Record<string, ContentBlock[]> = {
       ['Juros mensais', 'Percentagem adicional aplicada mês a mês sobre o valor em atraso.'],
     ]},
     { type: 'tip', content: 'O sistema mostra uma pré-visualização em tempo real das configurações antes de guardares, para confirmares que está tudo correcto.' },
+  ],
+
+  // ── Configurações: Notificações ──────────────────────────────────────────
+  'notificacoes-config': [
+    { type: 'h1', content: 'Notificações automáticas' },
+    { type: 'p', content: 'O CONDO. envia notificações automáticas aos moradores em momentos chave do ciclo de cobrança. Não precisas de fazer nada — o sistema trata de tudo.' },
+    { type: 'h2', content: 'Quando são enviadas' },
+    { type: 'table', headers: ['Momento', 'Canal', 'O que diz'], rows: [
+      ['Antes do vencimento', 'Email / WhatsApp / SMS', 'Lembrete preventivo com o valor e a data de vencimento da quota.'],
+      ['3 dias antes do vencimento', 'Email / WhatsApp / SMS', 'Lembrete de urgência para evitar atraso.'],
+      ['7 dias após o vencimento', 'Email / WhatsApp / SMS', 'Notificação de atraso com o valor em dívida incluindo multa e juros.'],
+    ]},
+    { type: 'h2', content: 'Canais disponíveis' },
+    { type: 'ul', items: [
+      'Email — enviado para o endereço registado do morador',
+      'WhatsApp — mensagem directa para o número de telefone',
+      'SMS — mensagem de texto para o número de telefone',
+    ]},
+    { type: 'warning', content: 'Se o email de um morador tiver problemas de entrega (bounce ou spam), o sistema assinala o utilizador como "Para Contactar". Nesse caso, usa outro canal para o avisar.' },
+    { type: 'tip', content: 'As notificações são processadas automaticamente pelo scheduler do sistema. Não é necessária nenhuma configuração adicional.' },
+  ],
+
+  // ── Portfólio ─────────────────────────────────────────────────────────────
+  'portfolio-visao': [
+    { type: 'h1', content: 'Vista de portfólio' },
+    { type: 'p', content: 'A vista de portfólio é o ponto de entrada para gestores e administradores que gerem vários condomínios. Mostra todos os condomínios disponíveis num único ecrã, com acesso rápido a cada um.' },
+    { type: 'h2', content: 'Quem tem acesso' },
+    { type: 'ul', items: [
+      'Super Admin — vê todos os condomínios do sistema',
+      'Admin — vê os condomínios que gere',
+      'Gestor — vê os condomínios atribuídos ao seu portfólio',
+    ]},
+    { type: 'h2', content: 'O que vês em cada card' },
+    { type: 'ul', items: [
+      'Nome do condomínio',
+      'Cidade e província',
+      'Total de unidades',
+      'Estado: Ativo ou Inativo',
+    ]},
+    { type: 'h2', content: 'Navegar para um condomínio' },
+    { type: 'p', content: 'Clica em "Aceder Painel" no card do condomínio pretendido. Entras directamente no painel desse condomínio, com acesso a todas as suas funcionalidades.' },
+    { type: 'tip', content: 'Usa a barra de pesquisa para filtrar por nome ou localização quando tens muitos condomínios no portfólio.' },
+  ],
+  'portfolio-fluxo': [
+    { type: 'h1', content: 'Fluxo de caixa consolidado' },
+    { type: 'p', content: 'O fluxo de caixa consolidado agrega as finanças de todos os condomínios do teu portfólio num único ecrã. Permite ter uma visão global da saúde financeira sem precisar de entrar em cada condomínio individualmente.' },
+    { type: 'h2', content: 'Métricas globais' },
+    { type: 'ul', items: [
+      'Receita Total — soma de todas as quotas pagas em todos os condomínios no período',
+      'Despesas Totais — soma de todos os custos operacionais no período',
+      'Margem Líquida — diferença entre receita e despesas, em valor e percentagem',
+    ]},
+    { type: 'h2', content: 'Breakdown por condomínio' },
+    { type: 'p', content: 'A tabela de breakdown mostra cada condomínio individualmente com a sua receita, despesas, margem e uma barra de performance visual.' },
+    { type: 'badge-list', badges: [
+      { label: 'Verde ≥ 50%', color: 'bg-emerald-100 text-emerald-700' },
+      { label: 'Amarelo ≥ 20%', color: 'bg-amber-100 text-amber-700' },
+      { label: 'Vermelho < 20%', color: 'bg-red-100 text-red-700' },
+    ]},
+    { type: 'h2', content: 'Filtro de período' },
+    { type: 'p', content: 'Podes filtrar os dados por 4 períodos diferentes: este mês, últimos 3 meses, últimos 6 meses ou este ano. O filtro aplica-se a todos os condomínios ao mesmo tempo.' },
+    { type: 'warning', content: 'Uma margem negativa num condomínio significa que as despesas superaram as receitas nesse período. Convém investigar os custos ou rever o valor das quotas.' },
+  ],
+
+  // ── Utilizadores da plataforma ────────────────────────────────────────────
+  'gerir-utilizadores': [
+    { type: 'h1', content: 'Gerir utilizadores' },
+    { type: 'p', content: 'O módulo de utilizadores permite gerir todas as contas de acesso à plataforma: administradores, gestores, síndicos, funcionários e moradores.' },
+    { type: 'h2', content: 'Quem pode aceder' },
+    { type: 'ul', items: [
+      'Super Admin — vê e gere todos os utilizadores do sistema',
+      'Admin — vê e gere os utilizadores dos seus condomínios',
+      'Gestor — só visualiza (não pode criar nem eliminar)',
+    ]},
+    { type: 'h2', content: 'Filtros disponíveis' },
+    { type: 'ul', items: [
+      'Pesquisa por nome ou email',
+      'Filtro por role: Administrador, Gestor, Síndico, Funcionário, Morador',
+      'Filtro por estado: Ativo, Inativo, Pendente',
+      'Filtro de email: Para Contactar (emails com problemas de entrega)',
+    ]},
+    { type: 'h2', content: 'Acções disponíveis' },
+    { type: 'table', headers: ['Acção', 'Quem pode', 'Notas'], rows: [
+      ['Criar utilizador', 'Admin, Super Admin', 'Envia convite por email automaticamente.'],
+      ['Editar utilizador', 'Admin, Super Admin', 'Altera nome, email, role e condomínio associado.'],
+      ['Activar / Desactivar', 'Admin, Super Admin', 'Um utilizador inactivo não consegue fazer login.'],
+      ['Eliminar utilizador', 'Admin, Super Admin', 'Remove a conta do Auth e do Firestore. Irreversível.'],
+    ]},
+    { type: 'warning', content: 'Ninguém pode eliminar a sua própria conta, nem um Admin pode eliminar outro Admin. Apenas o Super Admin tem essa permissão.' },
+  ],
+  'convidar-utilizador': [
+    { type: 'h1', content: 'Convidar um utilizador' },
+    { type: 'p', content: 'Ao criar um novo utilizador, o sistema envia automaticamente um email de convite com um link para o primeiro acesso.' },
+    { type: 'ol', items: [
+      'Vai ao módulo Utilizadores e clica em "Novo Usuário".',
+      'Preenche o nome completo e o email.',
+      'Escolhe o role adequado à função da pessoa.',
+      'Associa o condomínio (ou condomínios) se aplicável.',
+      'Guarda. O sistema cria a conta e envia o convite.',
+    ]},
+    { type: 'h2', content: 'O que acontece depois' },
+    { type: 'p', content: 'O utilizador recebe um email com um link de acesso temporário. Ao clicar, é redirecionado para a plataforma onde define a sua senha pessoal. Enquanto não aceitar o convite, o estado fica como "Pendente".' },
+    { type: 'tip', content: 'Se o email não chegar, verifica o estado do utilizador. Se aparecer como "Para Contactar", o email teve problemas de entrega — contacta a pessoa por outro meio e pede-lhe para verificar a pasta de spam.' },
+  ],
+  'estados-email': [
+    { type: 'h1', content: 'Estados de e-mail' },
+    { type: 'p', content: 'O sistema monitoriza a entrega dos emails enviados e assinala automaticamente quando há problemas.' },
+    { type: 'table', headers: ['Estado', 'O que significa', 'O que fazer'], rows: [
+      ['OK', 'Email entregue com sucesso.', 'Nada a fazer.'],
+      ['Pendente', 'Convite enviado, aguarda aceitação.', 'Aguardar ou reenviar se necessário.'],
+      ['Bounce', 'O email foi rejeitado pelo servidor de destino.', 'Verificar se o endereço está correcto e corrigir.'],
+      ['Spam', 'O email foi marcado como spam pelo destinatário.', 'Contactar por outro meio e pedir para verificar a pasta de spam.'],
+      ['Erro', 'Falha técnica no envio.', 'Tentar reenviar ou contactar por outro canal.'],
+    ]},
+    { type: 'p', content: 'Os utilizadores com estado "Bounce", "Spam" ou "Erro" aparecem agrupados no contador "Para Contactar" no topo do módulo de utilizadores, para que não passem despercebidos.' },
+  ],
+
+  // ── Auditoria ─────────────────────────────────────────────────────────────
+  'registo-auditoria': [
+    { type: 'h1', content: 'Registo de auditoria' },
+    { type: 'p', content: 'O registo de auditoria guarda um histórico completo de todas as acções realizadas no sistema — quem fez o quê, quando e em que condomínio.' },
+    { type: 'h2', content: 'Quem tem acesso' },
+    { type: 'ul', items: [
+      'Super Admin — vê todos os registos de todos os condomínios',
+      'Admin — vê os seus próprios registos e os dos seus condomínios',
+      'Gestor — vê os registos dos condomínios que gere',
+    ]},
+    { type: 'h2', content: 'O que é registado' },
+    { type: 'ul', items: [
+      'Criação, edição e eliminação de condomínios, unidades e moradores',
+      'Pagamentos registados e revertidos',
+      'Criação e resolução de ocorrências',
+      'Envio de comunicados e notificações',
+      'Logins e acessos à plataforma',
+      'Alterações de utilizadores e permissões',
+      'Registo e saída de visitantes',
+    ]},
+    { type: 'h2', content: 'Informação de cada registo' },
+    { type: 'ul', items: [
+      'Categoria — tipo de acção (financeiro, moradores, acesso, etc.)',
+      'Descrição — texto legível do que aconteceu',
+      'Utilizador — nome e role de quem realizou a acção',
+      'Data e hora — timestamp exacto',
+      'Detalhes — informação adicional como IDs e valores (clica no registo para expandir)',
+    ]},
+    { type: 'tip', content: 'Clica em qualquer registo para expandir os detalhes técnicos, incluindo o ID da entidade afectada e metadados da operação.' },
+  ],
+  'categorias-auditoria': [
+    { type: 'h1', content: 'Categorias e filtros' },
+    { type: 'p', content: 'Os registos de auditoria estão organizados por categorias para facilitar a pesquisa e análise.' },
+    { type: 'h2', content: 'Categorias disponíveis' },
+    { type: 'badge-list', badges: [
+      { label: 'Financeiro', color: 'bg-emerald-50 text-emerald-700' },
+      { label: 'Utilizadores', color: 'bg-blue-50 text-blue-700' },
+      { label: 'Ocorrências', color: 'bg-amber-50 text-amber-700' },
+      { label: 'Condomínio', color: 'bg-purple-50 text-purple-700' },
+      { label: 'Acesso', color: 'bg-zinc-100 text-zinc-600' },
+      { label: 'Moradores', color: 'bg-orange-50 text-orange-700' },
+      { label: 'Visitantes', color: 'bg-teal-50 text-teal-700' },
+      { label: 'Notificações', color: 'bg-rose-50 text-rose-700' },
+    ]},
+    { type: 'h2', content: 'Como filtrar' },
+    { type: 'ul', items: [
+      'Usa a barra de pesquisa para encontrar registos por descrição, utilizador ou acção',
+      'Clica numa categoria para filtrar apenas os registos desse tipo',
+      'Os contadores no topo mostram quantos registos existem por categoria',
+      'Clica novamente na categoria activa para voltar a ver todos',
+    ]},
+    { type: 'tip', content: 'O registo de auditoria é imutável — nenhum utilizador, incluindo o Super Admin, pode editar ou apagar registos. Serve como prova de todas as operações realizadas.' },
   ],
 };
 
