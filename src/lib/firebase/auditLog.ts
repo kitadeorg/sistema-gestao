@@ -74,7 +74,8 @@ export type AuditCategoria =
   | 'condominio'
   | 'acesso'
   | 'moradores'
-  | 'visitantes';
+  | 'visitantes'
+  | 'notificacoes';
 
 export interface AuditLog {
   id: string;
@@ -144,7 +145,7 @@ export const CATEGORIA_MAP: Record<AuditAccao, AuditCategoria> = {
   despesa_editada:         'financeiro',
   despesa_eliminada:       'financeiro',
   pagamento_parcial:       'financeiro',
-  notificacao_enviada:     'condominio',
+  notificacao_enviada:     'notificacoes',
   quotas_geradas_automatico: 'financeiro',
 };
 
