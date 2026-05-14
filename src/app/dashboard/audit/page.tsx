@@ -5,7 +5,7 @@ import { useAuthContext } from '@/contexts/AuthContext';
 import { getAuditLogs, type AuditLog, type AuditCategoria } from '@/lib/firebase/auditLog';
 import {
   ShieldCheck, Search, RefreshCw, Loader2,
-  DollarSign, Users, Bell, Building2, LogIn, Home, Eye,
+  DollarSign, Users, Bell, Building2, LogIn, Home, Eye, MessageSquare,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Pagination, { usePagination } from '@/components/ui/Pagination';
@@ -19,7 +19,8 @@ const CATEGORIA_CFG: Record<AuditCategoria, { label: string; icon: React.ReactNo
   condominio:   { label: 'Condomínio',   icon: <Building2 size={12} />,  cls: 'bg-purple-50 text-purple-700 border-purple-200'      },
   acesso:       { label: 'Acesso',       icon: <LogIn size={12} />,      cls: 'bg-zinc-100 text-zinc-600 border-zinc-200'           },
   moradores:    { label: 'Moradores',    icon: <Home size={12} />,       cls: 'bg-orange-50 text-orange-700 border-orange-200'      },
-  visitantes:   { label: 'Visitantes',   icon: <Eye size={12} />,        cls: 'bg-teal-50 text-teal-700 border-teal-200'            },
+  visitantes:   { label: 'Visitantes',    icon: <Eye size={12} />,           cls: 'bg-teal-50 text-teal-700 border-teal-200'            },
+  notificacoes: { label: 'Notificações',  icon: <MessageSquare size={12} />, cls: 'bg-rose-50 text-rose-700 border-rose-200'            },
 };
 
 function CategoriaBadge({ categoria }: { categoria: AuditCategoria }) {
