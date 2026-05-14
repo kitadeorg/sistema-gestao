@@ -61,7 +61,11 @@ export type AuditAccao =
   | 'despesa_editada'
   | 'despesa_eliminada'
   // Pagamentos
-  | 'pagamento_parcial';
+  | 'pagamento_parcial'
+  // Notificações
+  | 'notificacao_enviada'
+  // Scheduler
+  | 'quotas_geradas_automatico';
 
 export type AuditCategoria =
   | 'financeiro'
@@ -140,6 +144,8 @@ export const CATEGORIA_MAP: Record<AuditAccao, AuditCategoria> = {
   despesa_editada:         'financeiro',
   despesa_eliminada:       'financeiro',
   pagamento_parcial:       'financeiro',
+  notificacao_enviada:     'condominio',
+  quotas_geradas_automatico: 'financeiro',
 };
 
 // ─────────────────────────────────────────────
