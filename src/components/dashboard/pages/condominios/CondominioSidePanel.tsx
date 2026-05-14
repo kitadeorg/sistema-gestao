@@ -30,16 +30,106 @@ type FormDataType = {
 const overlayVariants = { visible: { opacity: 1 }, hidden: { opacity: 0 }};
 const panelVariants = { visible: { x: 0 }, hidden: { x: '100%' }};
 
-// ── NIF Angola: exactamente 10 dígitos numéricos ──────────────────────────────
-function formatNIF(raw: string): string {
-    // Remove tudo que não seja dígito e limita a 10 caracteres
-    return raw.replace(/\D/g, '').slice(0, 10);
+// ── NIF Angola ────────────────────────────────────────────────────────────────
+//
+//  Três formatos válidos:
+//  A) Pessoa Colectiva  → 9 dígitos, começa por 5          ex: 500123456
+//  B) Pessoa Singular   → 14 chars: 9 dígitos + 2 MAIÚSC + 3 dígitos
+//                         ex: 003456789LA042
+//  C) Estrangeiro       → 9 dígitos sequenciais (AGT)      ex: 123456789
+//
+//  A máscara aplica-se em tempo real:
+//   - Só aceita dígitos e letras maiúsculas
+//   - Limita ao comprimento máximo do formato detectado (14 para singular, 9 para os outros)
+
+type NIFTipo = 'coletiva' | 'singular' | 'estrangeiro' | null;
+
+interface NIFResult {
+    valid: boolean;
+    tipo: NIFTipo;
+    error: string | null;
 }
-function validateNIF(value: string): string | null {
-    if (value === '') return null; // campo opcional
-    if (value.length !== 10) return `NIF incompleto — faltam ${10 - value.length} dígito${10 - value.length !== 1 ? 's' : ''}.`;
+
+// Detecta o tipo com base no valor actual (parcial ou completo)
+function detectTipo(value: string): NIFTipo {
+    if (value === '') return null;
+    // Se começa por 5 e só tem dígitos → Colectiva
+    if (/^5\d*$/.test(value)) return 'coletiva';
+    // Se tem letras no meio (posições 9-10) → Singular
+    if (/^[0-9]{1,9}[A-Z]{0,2}[0-9]{0,3}$/.test(value) && /[A-Z]/.test(value)) return 'singular';
+    // Dígitos que não começam por 5 → Estrangeiro
+    if (/^\d+$/.test(value) && !value.startsWith('5')) return 'estrangeiro';
     return null;
 }
+
+function formatNIF(raw: string): string {
+    // Converte para maiúsculas e remove caracteres inválidos
+    const upper = raw.toUpperCase();
+
+    // Detecta o tipo com base no que já foi escrito
+    const hasletter = /[A-Z]/.test(upper);
+
+    if (hasletter) {
+        // Formato Singular: 9 dígitos + 2 letras + 3 dígitos (max 14)
+        // Permite dígitos nas posições 0-8, letras nas 9-10, dígitos nas 11-13
+        let result = '';
+        let digits1 = 0; // primeiros 9 dígitos
+        let letters = 0; // 2 letras
+        let digits2 = 0; // últimos 3 dígitos
+
+        for (const ch of upper) {
+            if (digits1 < 9 && /\d/.test(ch)) { result += ch; digits1++; }
+            else if (digits1 === 9 && letters < 2 && /[A-Z]/.test(ch)) { result += ch; letters++; }
+            else if (digits1 === 9 && letters === 2 && digits2 < 3 && /\d/.test(ch)) { result += ch; digits2++; }
+        }
+        return result;
+    } else {
+        // Formato Colectiva ou Estrangeiro: só dígitos, max 9
+        return upper.replace(/\D/g, '').slice(0, 9);
+    }
+}
+
+function validateNIF(value: string): NIFResult {
+    if (value === '') return { valid: true, tipo: null, error: null };
+
+    const tipo = detectTipo(value);
+
+    // Pessoa Colectiva: 9 dígitos começando por 5
+    if (tipo === 'coletiva') {
+        if (value.length < 9) return { valid: false, tipo, error: `NIF incompleto — faltam ${9 - value.length} dígito${9 - value.length !== 1 ? 's' : ''}.` };
+        return { valid: true, tipo, error: null };
+    }
+
+    // Pessoa Singular: 9 dígitos + 2 letras + 3 dígitos = 14 chars
+    if (tipo === 'singular') {
+        const match = value.match(/^(\d{9})([A-Z]{2})(\d{3})$/);
+        if (!match) {
+            const len = value.length;
+            if (len < 14) return { valid: false, tipo, error: `NIF incompleto — ${14 - len} carácter${14 - len !== 1 ? 'es' : ''} em falta.` };
+            return { valid: false, tipo, error: 'Formato inválido. Esperado: 9 dígitos + 2 letras + 3 dígitos (ex: 003456789LA042).' };
+        }
+        return { valid: true, tipo, error: null };
+    }
+
+    // Estrangeiro: 9 dígitos (não começa por 5)
+    if (tipo === 'estrangeiro') {
+        if (value.length < 9) return { valid: false, tipo, error: `NIF incompleto — faltam ${9 - value.length} dígito${9 - value.length !== 1 ? 's' : ''}.` };
+        return { valid: true, tipo, error: null };
+    }
+
+    return { valid: false, tipo: null, error: 'Formato de NIF não reconhecido.' };
+}
+
+const NIF_TIPO_LABEL: Record<NonNullable<NIFTipo>, string> = {
+    coletiva:    'Pessoa Colectiva',
+    singular:    'Pessoa Singular',
+    estrangeiro: 'Estrangeiro Residente',
+};
+const NIF_TIPO_PLACEHOLDER: Record<NonNullable<NIFTipo>, string> = {
+    coletiva:    '500000000',
+    singular:    '000000000LA000',
+    estrangeiro: '000000000',
+};
 
 // --- Componente Principal ---
 const CondominioSidePanel: React.FC<SidePanelProps> = ({ isOpen, onClose, onSuccess, condominioData }) => {
@@ -47,7 +137,7 @@ const CondominioSidePanel: React.FC<SidePanelProps> = ({ isOpen, onClose, onSucc
     const initialFormState: FormDataType = { nome: '', cnpj: '', rua: '', numero: '', bairro: '', cidade: '', provincia: '' };
     const [formData, setFormData] = useState<FormDataType>(initialFormState);
     const [isSaving, setIsSaving] = useState(false);
-    const [nifError, setNifError] = useState<string | null>(null);
+    const [nifResult, setNifResult] = useState<NIFResult>({ valid: true, tipo: null, error: null });
     const [logoFile, setLogoFile] = useState<File | null>(null);
     const [logoPreview, setLogoPreview] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -90,14 +180,14 @@ const CondominioSidePanel: React.FC<SidePanelProps> = ({ isOpen, onClose, onSucc
     const handleNIFChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const masked = formatNIF(e.target.value);
         setFormData(prev => ({ ...prev, cnpj: masked }));
-        setNifError(validateNIF(masked));
+        setNifResult(validateNIF(masked));
     };
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         // Valida NIF antes de submeter
         const nifErr = validateNIF(formData.cnpj);
-        if (nifErr) { setNifError(nifErr); return; }
+        if (!nifErr.valid) { setNifResult(nifErr); return; }
         setIsSaving(true);
         try {
             let finalLogoUrl: string | undefined = condominioData?.logoUrl ?? undefined;
@@ -200,45 +290,72 @@ const CondominioSidePanel: React.FC<SidePanelProps> = ({ isOpen, onClose, onSucc
                                 <label htmlFor="cnpj" className="block text-sm font-medium text-gray-700">
                                     NIF <span className="text-zinc-400 font-normal">(opcional)</span>
                                 </label>
-                                <div className="relative mt-1">
+
+                                {/* Badge de tipo detectado */}
+                                {nifResult.tipo && (
+                                    <span className={cn(
+                                        'inline-block mt-1 mb-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold',
+                                        nifResult.tipo === 'coletiva'    && 'bg-blue-50 text-blue-700',
+                                        nifResult.tipo === 'singular'    && 'bg-purple-50 text-purple-700',
+                                        nifResult.tipo === 'estrangeiro' && 'bg-amber-50 text-amber-700',
+                                    )}>
+                                        {NIF_TIPO_LABEL[nifResult.tipo]}
+                                    </span>
+                                )}
+
+                                <div className="relative">
                                     <input
                                         type="text"
                                         name="cnpj"
                                         id="cnpj"
                                         value={formData.cnpj}
                                         onChange={handleNIFChange}
-                                        inputMode="numeric"
-                                        maxLength={10}
-                                        placeholder="0000000000"
+                                        inputMode={nifResult.tipo === 'singular' ? 'text' : 'numeric'}
+                                        maxLength={nifResult.tipo === 'singular' ? 14 : 9}
+                                        placeholder={
+                                            nifResult.tipo
+                                                ? NIF_TIPO_PLACEHOLDER[nifResult.tipo]
+                                                : '500000000'
+                                        }
+                                        autoComplete="off"
                                         className={cn(
                                             'text-black w-full pl-3 pr-16 py-2 rounded-lg border text-sm font-mono tracking-widest focus:outline-none focus:ring-2 bg-white transition-colors',
-                                            nifError
+                                            nifResult.error
                                                 ? 'border-red-400 focus:ring-red-500/20 focus:border-red-500'
-                                                : formData.cnpj.length === 10
+                                                : nifResult.valid && formData.cnpj.length > 0
                                                 ? 'border-emerald-400 focus:ring-emerald-500/20 focus:border-emerald-500'
                                                 : 'border-zinc-200 focus:ring-orange-500/20 focus:border-orange-500',
                                         )}
                                     />
-                                    {/* Contador de dígitos */}
+                                    {/* Contador */}
                                     <span className={cn(
-                                        'absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold tabular-nums',
-                                        formData.cnpj.length === 10 ? 'text-emerald-500' : 'text-zinc-400',
+                                        'absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold tabular-nums pointer-events-none',
+                                        nifResult.valid && formData.cnpj.length > 0 ? 'text-emerald-500' : 'text-zinc-400',
                                     )}>
-                                        {formData.cnpj.length}/10
+                                        {formData.cnpj.length}/{nifResult.tipo === 'singular' ? 14 : 9}
                                     </span>
                                 </div>
-                                {/* Mensagem de erro inline */}
-                                {nifError && (
+
+                                {/* Erro inline */}
+                                {nifResult.error && (
                                     <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
                                         <span className="inline-flex w-3.5 h-3.5 rounded-full bg-red-500 text-white items-center justify-center text-[9px] font-black shrink-0">!</span>
-                                        {nifError}
+                                        {nifResult.error}
                                     </p>
                                 )}
-                                {/* Confirmação quando válido */}
-                                {!nifError && formData.cnpj.length === 10 && (
+
+                                {/* Confirmação válido */}
+                                {nifResult.valid && formData.cnpj.length > 0 && (
                                     <p className="mt-1.5 text-xs text-emerald-600 flex items-center gap-1">
                                         <span className="inline-flex w-3.5 h-3.5 rounded-full bg-emerald-500 text-white items-center justify-center text-[9px] font-black shrink-0">✓</span>
                                         NIF válido
+                                    </p>
+                                )}
+
+                                {/* Ajuda de formatos */}
+                                {!formData.cnpj && (
+                                    <p className="mt-1.5 text-[10px] text-zinc-400 leading-relaxed">
+                                        Colectiva: 9 dígitos começando por 5 · Singular: 9 dígitos + 2 letras + 3 dígitos · Estrangeiro: 9 dígitos
                                     </p>
                                 )}
                             </div>
