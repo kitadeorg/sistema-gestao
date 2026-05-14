@@ -57,10 +57,12 @@ function StatusBadge({ status }: { status: Quota['status'] }) {
 
 function ModalPagamento({
   quota,
+  condominioNome,
   onClose,
   onSuccess,
 }: {
   quota: Quota;
+  condominioNome: string;
   onClose: () => void;
   onSuccess: () => void;
 }) {
@@ -81,6 +83,26 @@ function ModalPagamento({
         actorRole:     userData?.role,
       });
       toast.success(`Pagamento de ${quota.moradorNome} registado.`);
+
+      // Notificar morador via WhatsApp/SMS (best-effort, não bloqueia)
+      if (quota.moradorId) {
+        fetch('/api/notificacoes/enviar', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tipo:           'pagamento_confirmado',
+            condominioId:   quota.condominioId,
+            condominioNome,
+            titulo:         `Pagamento confirmado — ${MESES[quota.mes - 1]} ${quota.ano}`,
+            conteudo:       `Pagamento de ${quota.valor.toLocaleString('pt-AO')} Kz confirmado para a unidade ${quota.unidadeNumero}.`,
+            destinatarios:  [quota.moradorId],
+            actorId:        userData?.uid,
+            actorNome:      userData?.nome,
+            actorRole:      userData?.role,
+          }),
+        }).catch(() => {}); // silencioso — não bloqueia o fluxo
+      }
+
       onSuccess();
       onClose();
     } catch (e: any) {
@@ -162,6 +184,7 @@ export default function QuotasPage() {
   const [search,  setSearch]  = useState('');
   const [modalQuota, setModalQuota] = useState<Quota | null>(null);
   const [valorPadrao, setValorPadrao] = useState(0);
+  const [condominioNome, setCondominioNome] = useState('');
 
   const fetchResumo = useCallback(async () => {
     if (!condoId) return;
@@ -179,11 +202,14 @@ export default function QuotasPage() {
 
   useEffect(() => { fetchResumo(); }, [fetchResumo]);
 
-  // Buscar valor padrão do condomínio
+  // Buscar valor padrão e nome do condomínio
   useEffect(() => {
     if (!condoId) return;
     getDoc(doc(db, 'condominios', condoId)).then(snap => {
-      if (snap.exists()) setValorPadrao(snap.data().valorQuotaMensal ?? 0);
+      if (snap.exists()) {
+        setValorPadrao(snap.data().valorQuotaMensal ?? 0);
+        setCondominioNome(snap.data().nome ?? '');
+      }
     });
   }, [condoId]);
 
@@ -254,6 +280,7 @@ export default function QuotasPage() {
       {modalQuota && (
         <ModalPagamento
           quota={modalQuota}
+          condominioNome={condominioNome}
           onClose={() => setModalQuota(null)}
           onSuccess={fetchResumo}
         />

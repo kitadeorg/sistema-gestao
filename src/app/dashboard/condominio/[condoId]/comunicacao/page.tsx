@@ -11,9 +11,12 @@ import {
 import {
   Bell, Plus, Trash2, Pin, PinOff, X, Loader2,
   Search, RefreshCw, Megaphone, AlertTriangle,
+  MessageCircle, Send, CheckCircle2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase/firebase';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,6 +36,7 @@ const PRIORIDADE_CFG: Record<PrioridadeAviso, { label: string; cls: string }> = 
 
 interface ModalProps {
   condominioId: string;
+  condominioNome: string;
   autorId: string;
   autorNome: string;
   autorRole: string;
@@ -40,14 +44,16 @@ interface ModalProps {
   onSuccess: () => void;
 }
 
-function NovoAvisoModal({ condominioId, autorId, autorNome, autorRole, onClose, onSuccess }: ModalProps) {
-  const [saving, setSaving] = useState(false);
+function NovoAvisoModal({ condominioId, condominioNome, autorId, autorNome, autorRole, onClose, onSuccess }: ModalProps) {
+  const [saving, setSaving]           = useState(false);
+  const [enviandoWA, setEnviandoWA]   = useState(false);
   const [form, setForm] = useState({
     titulo: '',
     conteudo: '',
     tipo: 'geral' as TipoAviso,
     prioridade: 'normal' as PrioridadeAviso,
     fixado: false,
+    notificarWhatsApp: false,
   });
 
   const set = (k: keyof typeof form) => (v: any) =>
@@ -60,16 +66,53 @@ function NovoAvisoModal({ condominioId, autorId, autorNome, autorRole, onClose, 
     try {
       await createAviso({
         condominioId,
-        titulo: form.titulo.trim(),
-        conteudo: form.conteudo.trim(),
-        tipo: form.tipo,
+        titulo:    form.titulo.trim(),
+        conteudo:  form.conteudo.trim(),
+        tipo:      form.tipo,
         prioridade: form.prioridade,
-        fixado: form.fixado,
+        fixado:    form.fixado,
         autorId,
         autorNome,
         autorRole,
       });
-      toast.success('Aviso publicado com sucesso.');
+
+      // Enviar via WhatsApp/SMS se solicitado
+      if (form.notificarWhatsApp) {
+        setEnviandoWA(true);
+        try {
+          const res = await fetch('/api/notificacoes/enviar', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              tipo:           form.prioridade === 'urgente' ? 'aviso_urgente' : 'aviso_geral',
+              condominioId,
+              condominioNome,
+              titulo:         form.titulo.trim(),
+              conteudo:       form.conteudo.trim(),
+              urgente:        form.prioridade === 'urgente',
+              destinatarios:  'todos',
+              actorId:        autorId,
+              actorNome:      autorNome,
+              actorRole:      autorRole,
+            }),
+          });
+          const data = await res.json();
+          if (data.sucesso) {
+            toast.success(`Aviso publicado e enviado via WhatsApp/SMS para ${data.enviados} morador(es).`);
+          } else {
+            toast.success('Aviso publicado.');
+            toast.warning(`Notificações: ${data.falhados ?? 0} falharam. Verifica a configuração do Twilio.`);
+          }
+        } catch {
+          toast.success('Aviso publicado.');
+          toast.warning('Não foi possível enviar as notificações WhatsApp/SMS.');
+        } finally {
+          setEnviandoWA(false);
+        }
+      } else {
+        toast.success('Aviso publicado com sucesso.');
+      }
+
       onSuccess();
       onClose();
     } catch (e: any) {
@@ -144,15 +187,41 @@ function NovoAvisoModal({ condominioId, autorId, autorNome, autorRole, onClose, 
             </div>
             <span className="text-sm text-zinc-700">Fixar no topo</span>
           </label>
+
+          {/* Notificação WhatsApp/SMS */}
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <div
+                onClick={() => set('notificarWhatsApp')(!form.notificarWhatsApp)}
+                className={cn(
+                  'w-10 h-5 rounded-full transition-colors relative shrink-0',
+                  form.notificarWhatsApp ? 'bg-emerald-500' : 'bg-zinc-200',
+                )}
+              >
+                <div className={cn(
+                  'absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform',
+                  form.notificarWhatsApp ? 'translate-x-5' : 'translate-x-0.5',
+                )} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-emerald-800 flex items-center gap-1.5">
+                  <MessageCircle size={14} /> Notificar via WhatsApp / SMS
+                </p>
+                <p className="text-xs text-emerald-600 mt-0.5">
+                  Envia este aviso para todos os moradores com telefone registado
+                </p>
+              </div>
+            </label>
+          </div>
         </div>
 
         <div className="flex gap-3 p-5 border-t border-zinc-100">
-          <button onClick={onClose} disabled={saving} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-sm text-zinc-600 hover:bg-zinc-50 transition">
+          <button onClick={onClose} disabled={saving || enviandoWA} className="flex-1 py-2.5 rounded-xl border border-zinc-200 text-sm text-zinc-600 hover:bg-zinc-50 transition">
             Cancelar
           </button>
-          <button onClick={handleSave} disabled={saving} className="flex-1 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold transition disabled:opacity-60 flex items-center justify-center gap-2">
-            {saving && <Loader2 size={14} className="animate-spin" />}
-            Publicar
+          <button onClick={handleSave} disabled={saving || enviandoWA} className="flex-1 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-semibold transition disabled:opacity-60 flex items-center justify-center gap-2">
+            {(saving || enviandoWA) && <Loader2 size={14} className="animate-spin" />}
+            {enviandoWA ? 'A enviar...' : 'Publicar'}
           </button>
         </div>
       </div>
@@ -254,6 +323,15 @@ export default function ComunicacaoPage() {
   const [search, setSearch]       = useState('');
   const [tipoFiltro, setTipoFiltro] = useState<TipoAviso | 'todos'>('todos');
   const [showModal, setShowModal] = useState(false);
+  const [condominioNome, setCondominioNome] = useState('');
+
+  // Buscar nome do condomínio
+  useEffect(() => {
+    if (!condoId) return;
+    getDoc(doc(db, 'condominios', condoId)).then(snap => {
+      if (snap.exists()) setCondominioNome(snap.data().nome ?? '');
+    });
+  }, [condoId]);
 
   const fetchAvisos = useCallback(async () => {
     setLoading(true);
@@ -432,6 +510,7 @@ export default function ComunicacaoPage() {
       {showModal && userData && (
         <NovoAvisoModal
           condominioId={condoId}
+          condominioNome={condominioNome}
           autorId={userData.uid}
           autorNome={userData.nome}
           autorRole={userData.role}

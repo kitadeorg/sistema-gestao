@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/scheduler/gerar-quotas",
+      "schedule": "0 6 1 * *"
+    },
+    {
+      "path": "/api/scheduler/atualizar-atrasos",
+      "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/scheduler/lembretes",
+      "schedule": "0 9 * * *"
+    }
+  ]
+}
