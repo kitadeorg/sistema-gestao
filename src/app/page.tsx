@@ -29,8 +29,6 @@ function Navbar({ onCta }: { onCta: () => void }) {
 
   const links = [
     { label: 'Funcionalidades', href: '#features' },
-    { label: 'Como funciona',   href: '#how' },
-    { label: 'Planos',          href: '#pricing' },
   ];
 
   return (
@@ -269,47 +267,7 @@ const STEPS = [
   { n: '04', title: 'Gere em tempo real',      desc: 'Acompanha finanças, ocorrências e manutenção a partir do dashboard.' },
 ];
 
-function HowItWorks() {
-  return (
-    <section id="how" className="py-16 sm:py-24 px-4 sm:px-6 bg-zinc-50">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-12 sm:mb-16">
-          <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-zinc-900 tracking-tight mb-4">
-            Como funciona
-          </h2>
-          <p className="text-zinc-500 text-base sm:text-lg max-w-xl mx-auto">
-            Começa a gerir os teus condomínios em 4 passos simples.
-          </p>
-        </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-          {STEPS.map((s, i) => (
-            <motion.div
-              key={s.n}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.4, delay: i * 0.1 }}
-              className="relative"
-            >
-              {/* Linha conectora */}
-              {i < STEPS.length - 1 && (
-                <div className="hidden lg:block absolute top-6 left-full w-full h-px bg-zinc-200 -translate-x-4 z-0" />
-              )}
-              <div className="relative z-10">
-                <div className="w-12 h-12 bg-[#FF6600] text-white rounded-2xl flex items-center justify-center font-black text-sm mb-4 shadow-lg shadow-orange-500/20">
-                  {s.n}
-                </div>
-                <h3 className="font-bold text-zinc-900 mb-2">{s.title}</h3>
-                <p className="text-sm text-zinc-500 leading-relaxed">{s.desc}</p>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
 
 // ─────────────────────────────────────────────
 // PRICING
@@ -449,8 +407,7 @@ function Footer() {
           © {new Date().getFullYear()} CONDO. — Sistema de Gestão de Condomínios
         </p>
         <div className="flex gap-4 text-xs">
-          <a href="#" className="hover:text-zinc-300 transition-colors">Privacidade</a>
-          <a href="#" className="hover:text-zinc-300 transition-colors">Termos</a>
+       
           <Link href="/manual" className="hover:text-zinc-300 transition-colors">Manual</Link>
         </div>
       </div>
@@ -493,7 +450,6 @@ export default function HomePage() {
       <Navbar onCta={goToAuth} />
       <Hero onCta={goToAuth} />
       <Features />
-      <HowItWorks />
       <Footer />
     </div>
   );
