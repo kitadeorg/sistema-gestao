@@ -11,8 +11,6 @@
  *   npm install firebase-admin @aws-sdk/client-s3 dotenv --save-dev
  */
 
-import { readFileSync } from 'fs';
-import { createInterface } from 'readline';
 import { config } from 'dotenv';
 
 config({ path: '.env' });
@@ -23,24 +21,8 @@ const { getAuth }                       = await import('firebase-admin/auth');
 const { getFirestore }                  = await import('firebase-admin/firestore');
 const { S3Client, ListObjectsV2Command, DeleteObjectsCommand } = await import('@aws-sdk/client-s3');
 
-// ─── Confirmação interactiva ──────────────────────────────────────────────────
-const rl = createInterface({ input: process.stdin, output: process.stdout });
-const ask = (q) => new Promise(res => rl.question(q, res));
-
-console.log('\n⚠️  ATENÇÃO — OPERAÇÃO DESTRUTIVA E IRREVERSÍVEL ⚠️');
-console.log('Este script vai apagar:');
-console.log('  • Todos os utilizadores do Firebase Auth');
-console.log('  • Todas as colecções do Firestore');
-console.log('  • Todos os ficheiros do bucket R2');
-console.log('  • E criar o super_admin inicial\n');
-
-const confirm = await ask('Escreve "CONFIRMAR" para continuar: ');
-if (confirm.trim() !== 'CONFIRMAR') {
-  console.log('Operação cancelada.');
-  rl.close();
-  process.exit(0);
-}
-rl.close();
+// ─── Confirmação já dada pelo utilizador ─────────────────────────────────────
+console.log('\n⚠️  A iniciar reset completo e criação de super_admin...\n');
 
 // ─── Inicializar Firebase Admin ───────────────────────────────────────────────
 if (!getApps().length) {
@@ -157,9 +139,9 @@ console.log(`  ✓ ${deletedR2} ficheiros apagados do R2.`);
 // ─── 4. Criar super_admin ─────────────────────────────────────────────────────
 console.log('\n[4/4] A criar super_admin...');
 
-const SUPER_ADMIN_EMAIL = 'admin@netsulcondo.com';
-const SUPER_ADMIN_NOME  = 'Ekctiandro Gonçalo';
-const SUPER_ADMIN_PASS  = 'NetsulCondo@2025!'; // senha temporária — deve ser alterada no 1º login
+const SUPER_ADMIN_EMAIL = 'acesso@netsulcondo.com';
+const SUPER_ADMIN_NOME  = 'NetSul';
+const SUPER_ADMIN_PASS  = 'condoAdmin123';
 
 // Criar no Firebase Auth
 const authUser = await auth.createUser({

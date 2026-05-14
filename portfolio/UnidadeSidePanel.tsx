@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Loader2, Upload, FileSpreadsheet, Copy, Trash2, Plus } from 'lucide-react';
+import { X, Loader2, Upload, FileSpreadsheet, Copy, Trash2, Plus, AlertCircle } from 'lucide-react';
 import {
   createUnidade,
   updateUnidade,
@@ -9,6 +9,7 @@ import {
   UnidadeInput,
 } from '@/lib/firebase/unidades';
 import { toast } from 'sonner';
+import { validateFinanceiro, LIMITES_FINANCEIROS } from '@/lib/validations/angola';
 
 interface Props {
   condominioId: string;
@@ -44,6 +45,7 @@ export default function UnidadeSidePanel({
 
   const [mode, setMode] = useState<ModeType>('single');
   const [form, setForm] = useState(initialState);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   
   // Criação em lote
@@ -111,6 +113,29 @@ export default function UnidadeSidePanel({
 
   const handleChange = (field: keyof typeof form, value: any) => {
     setForm((prev) => ({ ...prev, [field]: value ?? '' }));
+    if (formErrors[field]) setFormErrors(prev => { const n = { ...prev }; delete n[field]; return n; });
+  };
+
+  const validateSingleForm = (): Record<string, string> => {
+    const e: Record<string, string> = {};
+    if (!form.numero.trim()) e.numero = 'Número da unidade é obrigatório.';
+    if (form.area) {
+      const err = validateFinanceiro(form.area, LIMITES_FINANCEIROS.area);
+      if (err) e.area = err;
+    }
+    if (form.fracao) {
+      const err = validateFinanceiro(form.fracao, LIMITES_FINANCEIROS.fracao);
+      if (err) e.fracao = err;
+    }
+    if (form.permilagem) {
+      const err = validateFinanceiro(form.permilagem, LIMITES_FINANCEIROS.permilagem);
+      if (err) e.permilagem = err;
+    }
+    if (form.ativaQuotaIndividual && form.quotaIndividual) {
+      const err = validateFinanceiro(form.quotaIndividual, LIMITES_FINANCEIROS.valorQuota);
+      if (err) e.quotaIndividual = err;
+    }
+    return e;
   };
 
   const handleBatchChange = (field: keyof typeof batchConfig, value: any) => {
@@ -121,8 +146,10 @@ export default function UnidadeSidePanel({
   const handleSubmit = async () => {
     if (loading) return;
 
-    if (!form.numero.trim()) {
-      toast.warning('Número da unidade é obrigatório.');
+    const errors = validateSingleForm();
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      toast.warning('Corrija os erros antes de guardar.');
       return;
     }
 
@@ -385,13 +412,17 @@ export default function UnidadeSidePanel({
           {/* MODO: Unidade Individual */}
           {mode === 'single' && (
             <>
-              <input
-                placeholder="Número"
-                value={form.numero}
-                disabled={loading}
-                onChange={(e) => handleChange('numero', e.target.value)}
-                className={inputStyle}
-              />
+              {/* Número */}
+              <div className="space-y-1">
+                <input
+                  placeholder="Número *"
+                  value={form.numero}
+                  disabled={loading}
+                  onChange={(e) => handleChange('numero', e.target.value)}
+                  className={`${inputStyle} ${formErrors.numero ? 'border-red-300 bg-red-50' : ''}`}
+                />
+                {formErrors.numero && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={11} />{formErrors.numero}</p>}
+              </div>
 
               <input
                 placeholder="Bloco"
@@ -418,32 +449,48 @@ export default function UnidadeSidePanel({
                 <option value="Arrecadação">Arrecadação</option>
               </select>
 
-              <input
-                type="number"
-                placeholder="Área (m²)"
-                value={form.area}
-                disabled={loading}
-                onChange={(e) => handleChange('area', e.target.value)}
-                className={inputStyle}
-              />
+              {/* Área */}
+              <div className="space-y-1">
+                <input
+                  type="number"
+                  placeholder="Área (m²)"
+                  value={form.area}
+                  disabled={loading}
+                  min={0.1}
+                  onChange={(e) => handleChange('area', e.target.value)}
+                  className={`${inputStyle} ${formErrors.area ? 'border-red-300 bg-red-50' : ''}`}
+                />
+                {formErrors.area && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={11} />{formErrors.area}</p>}
+              </div>
 
-              <input
-                type="number"
-                placeholder="Fração"
-                value={form.fracao}
-                disabled={loading}
-                onChange={(e) => handleChange('fracao', e.target.value)}
-                className={inputStyle}
-              />
+              {/* Fração */}
+              <div className="space-y-1">
+                <input
+                  type="number"
+                  placeholder="Fração"
+                  value={form.fracao}
+                  disabled={loading}
+                  min={0}
+                  onChange={(e) => handleChange('fracao', e.target.value)}
+                  className={`${inputStyle} ${formErrors.fracao ? 'border-red-300 bg-red-50' : ''}`}
+                />
+                {formErrors.fracao && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={11} />{formErrors.fracao}</p>}
+              </div>
 
-              <input
-                type="number"
-                placeholder="Permilagem"
-                value={form.permilagem}
-                disabled={loading}
-                onChange={(e) => handleChange('permilagem', e.target.value)}
-                className={inputStyle}
-              />
+              {/* Permilagem */}
+              <div className="space-y-1">
+                <input
+                  type="number"
+                  placeholder="Permilagem (‰)"
+                  value={form.permilagem}
+                  disabled={loading}
+                  min={0}
+                  max={1000}
+                  onChange={(e) => handleChange('permilagem', e.target.value)}
+                  className={`${inputStyle} ${formErrors.permilagem ? 'border-red-300 bg-red-50' : ''}`}
+                />
+                {formErrors.permilagem && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={11} />{formErrors.permilagem}</p>}
+              </div>
 
               <label className="flex items-center gap-2 text-sm text-zinc-900">
                 <input
@@ -458,16 +505,20 @@ export default function UnidadeSidePanel({
               </label>
 
               {form.ativaQuotaIndividual && (
-                <input
-                  type="number"
-                  placeholder="Valor quota individual"
-                  value={form.quotaIndividual}
-                  disabled={loading}
-                  onChange={(e) =>
-                    handleChange('quotaIndividual', e.target.value)
-                  }
-                  className={inputStyle}
-                />
+                <div className="space-y-1">
+                  <input
+                    type="number"
+                    placeholder="Valor quota individual (Kz)"
+                    value={form.quotaIndividual}
+                    disabled={loading}
+                    min={0}
+                    onChange={(e) =>
+                      handleChange('quotaIndividual', e.target.value)
+                    }
+                    className={`${inputStyle} ${formErrors.quotaIndividual ? 'border-red-300 bg-red-50' : ''}`}
+                  />
+                  {formErrors.quotaIndividual && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={11} />{formErrors.quotaIndividual}</p>}
+                </div>
               )}
 
               <select

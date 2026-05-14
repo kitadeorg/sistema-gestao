@@ -5,9 +5,10 @@ import { useParams } from 'next/navigation';
 import { collection, query, where, getDocs, addDoc, Timestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
 import { useAuth } from '@/hooks/useAuth';
-import { Users, ArrowLeft, Plus, X, Loader2, LogOut } from 'lucide-react';
+import { Users, ArrowLeft, Plus, X, Loader2, LogOut, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { formatBI, validateBI } from '@/lib/validations/angola';
 
 interface Visitante {
   id: string;
@@ -22,6 +23,19 @@ interface Visitante {
 
 function Modal({ onClose, onSave, unidade }: { onClose: () => void; onSave: (v: Omit<Visitante, 'id'>) => void; unidade: string }) {
   const [form, setForm] = useState({ nome: '', documento: '', motivoVisita: '' });
+  const [errors, setErrors] = useState<{ nome?: string; documento?: string }>({});
+
+  const inputCls = (err?: string) =>
+    `w-full px-3 py-2 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all ${err ? 'border-red-300 bg-red-50' : 'border-zinc-200'}`;
+
+  const handleSave = () => {
+    const e: typeof errors = {};
+    if (!form.nome.trim()) e.nome = 'Nome é obrigatório.';
+    const biErr = validateBI(form.documento);
+    if (biErr) e.documento = biErr;
+    if (Object.keys(e).length > 0) { setErrors(e); return; }
+    onSave({ ...form, unidadeDestino: unidade, entrada: new Date().toLocaleString('pt-AO'), status: 'dentro' });
+  };
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
@@ -34,35 +48,63 @@ function Modal({ onClose, onSave, unidade }: { onClose: () => void; onSave: (v: 
         </div>
 
         <div className="space-y-3">
-          {[
-            { key: 'nome', label: 'Nome Completo *', placeholder: 'Ex: João Manuel' },
-            { key: 'documento', label: 'BI / Documento', placeholder: 'Nº do Bilhete' },
-            { key: 'motivoVisita', label: 'Motivo da Visita', placeholder: 'Ex: Entrega, Visita familiar' },
-          ].map(({ key, label, placeholder }) => (
-            <div key={key}>
-              <label className="text-xs font-medium text-zinc-500 mb-1 block">{label}</label>
-              <input 
-                type="text" 
-                placeholder={placeholder}
-                value={(form as any)[key]}
-                onChange={e => setForm({ ...form, [key]: e.target.value })}
-                className="w-full px-3 py-2 text-sm border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all" 
-              />
-            </div>
-          ))}
+          {/* Nome */}
+          <div>
+            <label className="text-xs font-medium text-zinc-500 mb-1 block">Nome Completo *</label>
+            <input
+              type="text"
+              placeholder="Ex: João Manuel"
+              value={form.nome}
+              onChange={e => { setForm({ ...form, nome: e.target.value }); setErrors(p => ({ ...p, nome: undefined })); }}
+              className={inputCls(errors.nome)}
+            />
+            {errors.nome && <p className="text-xs text-red-500 flex items-center gap-1 mt-1"><AlertCircle size={11} />{errors.nome}</p>}
+          </div>
+
+          {/* BI / Documento */}
+          <div>
+            <label className="text-xs font-medium text-zinc-500 mb-1 block">BI / Documento</label>
+            <input
+              type="text"
+              placeholder="Ex: 003456789LA042"
+              value={form.documento}
+              onChange={e => {
+                const masked = formatBI(e.target.value);
+                setForm({ ...form, documento: masked });
+                setErrors(p => ({ ...p, documento: undefined }));
+              }}
+              className={inputCls(errors.documento)}
+              maxLength={14}
+            />
+            {errors.documento
+              ? <p className="text-xs text-red-500 flex items-center gap-1 mt-1"><AlertCircle size={11} />{errors.documento}</p>
+              : <p className="text-[10px] text-zinc-400 mt-1">Formato BI: 9 dígitos + 2 letras + 3 dígitos (ex: 003456789LA042)</p>
+            }
+          </div>
+
+          {/* Motivo */}
+          <div>
+            <label className="text-xs font-medium text-zinc-500 mb-1 block">Motivo da Visita</label>
+            <input
+              type="text"
+              placeholder="Ex: Entrega, Visita familiar"
+              value={form.motivoVisita}
+              onChange={e => setForm({ ...form, motivoVisita: e.target.value })}
+              className={inputCls()}
+            />
+          </div>
         </div>
 
         <div className="flex justify-end gap-2 pt-2">
-          <button 
-            onClick={onClose} 
+          <button
+            onClick={onClose}
             className="px-4 py-2 text-sm text-zinc-600 border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors"
           >
             Cancelar
           </button>
-          <button 
-            onClick={() => form.nome && onSave({ ...form, unidadeDestino: unidade, entrada: new Date().toLocaleString('pt-AO'), status: 'dentro' })}
-            disabled={!form.nome}
-            className="px-4 py-2 text-sm bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl transition-colors shadow-sm"
+          <button
+            onClick={handleSave}
+            className="px-4 py-2 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded-xl transition-colors shadow-sm"
           >
             Registar
           </button>

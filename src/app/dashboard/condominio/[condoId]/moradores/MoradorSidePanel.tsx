@@ -7,6 +7,7 @@ import { db } from '@/lib/firebase/firebase';
 import { inviteUser } from '@/lib/inviteUser';
 import DocumentUploader, { UploadedDoc } from '@/components/ui/DocumentUploader';
 import { toast } from 'sonner';
+import { formatTelefone, validateTelefone } from '@/lib/validations/angola';
 
 interface Props {
   condominioId: string;
@@ -27,6 +28,7 @@ interface FormErrors {
   unidadeId?: string;
   nome?: string;
   email?: string;
+  telefone?: string;
 }
 
 function validate(form: FormData): FormErrors {
@@ -35,6 +37,8 @@ function validate(form: FormData): FormErrors {
   if (!form.nome.trim())  e.nome      = 'Nome é obrigatório';
   if (!form.email.trim()) e.email     = 'Email é obrigatório';
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Email inválido';
+  const telErr = validateTelefone(form.telefone);
+  if (telErr) e.telefone = telErr;
   return e;
 }
 
@@ -206,7 +210,20 @@ export default function MoradorSidePanel({ condominioId, isOpen, onClose, onSucc
               {/* Telefone */}
               <div className="space-y-1">
                 <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Telefone</label>
-                <input type="tel" value={form.telefone} onChange={e => set('telefone')(e.target.value)} placeholder="+244 9XX XXX XXX" className={inputCls()} />
+                <input
+                  type="tel"
+                  value={form.telefone}
+                  onChange={e => {
+                    const masked = formatTelefone(e.target.value);
+                    set('telefone')(masked);
+                    if ((errors as any).telefone) setErrors(prev => ({ ...prev, telefone: undefined }));
+                  }}
+                  placeholder="9XX XXX XXX"
+                  inputMode="numeric"
+                  className={inputCls(errors.telefone)}
+                />
+                {errors.telefone && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={11} />{errors.telefone}</p>}
+                <p className="text-[10px] text-zinc-400">Formato: +244 9XX XXX XXX</p>
               </div>
 
               {/* Tipo */}

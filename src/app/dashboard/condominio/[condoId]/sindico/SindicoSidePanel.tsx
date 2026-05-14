@@ -7,6 +7,7 @@ import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
 import DocumentUploader, { UploadedDoc } from '@/components/ui/DocumentUploader';
 import { toast } from 'sonner';
+import { formatTelefone, validateTelefone } from '@/lib/validations/angola';
 
 interface Props {
   condoId: string;
@@ -32,6 +33,7 @@ function validate(form: FormData): FormErrors {
   if (!form.email.trim()) e.email = 'Email é obrigatório';
   else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Email inválido';
   if (!form.telefone.trim()) e.telefone = 'Telefone é obrigatório';
+  else { const t = validateTelefone(form.telefone); if (t) e.telefone = t; }
   return e;
 }
 
@@ -165,7 +167,24 @@ export default function SindicoSidePanel({ condoId, onClose, onSuccess }: Props)
 
               <Field label="Nome Completo *" value={form.nome} onChange={set('nome')} error={errors.nome} placeholder="Ex: Carlos Mendes" />
               <Field label="Email *" value={form.email} onChange={set('email')} error={errors.email} type="email" placeholder="carlos@email.com" />
-              <Field label="Telefone *" value={form.telefone} onChange={set('telefone')} error={errors.telefone} type="tel" placeholder="+244 9XX XXX XXX" />
+
+              {/* Telefone com máscara angolana */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Telefone *</label>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  value={form.telefone}
+                  onChange={e => {
+                    const masked = formatTelefone(e.target.value);
+                    set('telefone')(masked);
+                  }}
+                  placeholder="9XX XXX XXX"
+                  className={`w-full px-3 py-2.5 text-sm rounded-xl border transition-colors focus:outline-none focus:ring-2 focus:ring-orange-300 ${errors.telefone ? 'border-red-300 bg-red-50' : 'border-zinc-200 bg-white'}`}
+                />
+                {errors.telefone && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={11} />{errors.telefone}</p>}
+                <p className="text-[10px] text-zinc-400">Formato: +244 9XX XXX XXX</p>
+              </div>
 
               {/* Documentos */}
               <div className="space-y-2">

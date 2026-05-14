@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Camera, Loader2, Save, User, Mail, Phone, Shield } from 'lucide-react';
+import { Camera, Loader2, Save, User, Mail, Phone, Shield, AlertCircle } from 'lucide-react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { updateUser } from '@/lib/firebase/users';
 import { updateProfile } from 'firebase/auth';
 import { auth } from '@/lib/firebase/firebase';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { formatTelefone, validateTelefone } from '@/lib/validations/angola';
 
 const ROLE_LABELS: Record<string, string> = {
   admin: 'Administrador',
@@ -24,6 +25,7 @@ export default function PerfilTab() {
   const [telefone, setTelefone] = useState(userData?.telefone ?? '');
   const [saving,   setSaving]   = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [errors, setErrors] = useState<{ nome?: string; telefone?: string }>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
   const avatarUrl = userData?.avatarUrl ?? user?.photoURL ?? null;
@@ -31,6 +33,17 @@ export default function PerfilTab() {
 
   const handleSave = async () => {
     if (!user || !userData) return;
+
+    // Validação
+    const e: typeof errors = {};
+    if (!nome.trim()) e.nome = 'Nome é obrigatório.';
+    if (telefone.trim()) {
+      const telErr = validateTelefone(telefone);
+      if (telErr) e.telefone = telErr;
+    }
+    if (Object.keys(e).length > 0) { setErrors(e); return; }
+    setErrors({});
+
     setSaving(true);
     try {
       await updateUser(user.uid, { nome: nome.trim(), telefone: telefone.trim() });
@@ -115,8 +128,9 @@ export default function PerfilTab() {
           label="Nome completo"
           icon={<User size={15} />}
           value={nome}
-          onChange={setNome}
+          onChange={v => { setNome(v); setErrors(p => ({ ...p, nome: undefined })); }}
           placeholder="O seu nome"
+          error={errors.nome}
         />
 
         <Field
@@ -133,8 +147,16 @@ export default function PerfilTab() {
           label="Telefone"
           icon={<Phone size={15} />}
           value={telefone}
-          onChange={setTelefone}
-          placeholder="+244 9XX XXX XXX"
+          onChange={v => {
+            const masked = formatTelefone(v);
+            setTelefone(masked);
+            setErrors(p => ({ ...p, telefone: undefined }));
+          }}
+          placeholder="9XX XXX XXX"
+          hint="Formato: +244 9XX XXX XXX"
+          type="tel"
+          inputMode="numeric"
+          error={errors.telefone}
         />
       </div>
 
@@ -178,7 +200,7 @@ export default function PerfilTab() {
 }
 
 function Field({
-  label, icon, value, onChange, placeholder, disabled, hint,
+  label, icon, value, onChange, placeholder, disabled, hint, error, type = 'text', inputMode,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -187,6 +209,9 @@ function Field({
   placeholder?: string;
   disabled?: boolean;
   hint?: string;
+  error?: string;
+  type?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
 }) {
   return (
     <div className="space-y-1.5">
@@ -194,6 +219,8 @@ function Field({
       <div className="relative">
         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400">{icon}</span>
         <input
+          type={type}
+          inputMode={inputMode}
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
@@ -203,11 +230,16 @@ function Field({
             'focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500',
             disabled
               ? 'bg-zinc-50 border-zinc-200 text-zinc-400 cursor-not-allowed'
+              : error
+              ? 'bg-red-50 border-red-300'
               : 'bg-white border-zinc-200',
           )}
         />
       </div>
-      {hint && <p className="text-xs text-zinc-400">{hint}</p>}
+      {error
+        ? <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={11} />{error}</p>
+        : hint && <p className="text-xs text-zinc-400">{hint}</p>
+      }
     </div>
   );
 }

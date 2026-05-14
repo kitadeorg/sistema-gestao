@@ -14,6 +14,7 @@ import {
 import { inviteUser } from '@/lib/inviteUser';
 import { getCondominios } from '@/lib/firebase/condominios';
 import { validateEmail } from '@/lib/validations/emailDnsValidator';
+import { formatTelefone, validateTelefone } from '@/lib/validations/angola';
 import type { Condominio } from '@/types';
 import { toast } from 'sonner';
 
@@ -222,6 +223,9 @@ export default function UserModal({ user, onClose, onSuccess }: UserModalProps) 
       return 'Selecione o condomínio associado.';
     if (needsMultiCondo && condominiosGeridos.length === 0)
       return 'Selecione pelo menos um condomínio a gerir.';
+
+    const telErr = validateTelefone(telefone);
+    if (telErr) return `Telefone: ${telErr}`;
 
     return null;
   };
@@ -539,14 +543,17 @@ export default function UserModal({ user, onClose, onSuccess }: UserModalProps) 
                   Telefone
                 </label>
                 <input
+                  type="tel"
+                  inputMode="numeric"
                   value={telefone}
-                  onChange={(e) => setTelefone(e.target.value)}
-                  placeholder="Ex: +244 9xx xxx xxx"
+                  onChange={(e) => setTelefone(formatTelefone(e.target.value))}
+                  placeholder="9XX XXX XXX"
                   disabled={!isAdmin || submitting}
                   className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 bg-white text-sm
                              text-zinc-900 focus:outline-none focus:ring-2 focus:ring-orange-500/20
                              focus:border-orange-500 disabled:opacity-60"
                 />
+                <p className="text-xs text-zinc-400">Formato: +244 9XX XXX XXX</p>
               </div>
 
               {/* Perfil / Role */}

@@ -12,10 +12,11 @@ import { can } from '@/lib/permissions/permissionMatrix';
 import {
   Wrench, Plus, Search, Clock, CheckCircle2, Loader2,
   CalendarDays, Building2, Phone, Mail, Trash2, X,
-  RefreshCw, Users, ChevronDown, ChevronUp,
+  RefreshCw, Users, ChevronDown, ChevronUp, AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { formatTelefone, validateTelefone, validateEmail } from '@/lib/validations/angola';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -156,11 +157,26 @@ function NovoFornecedorModal({ condoId, onClose, onSuccess }: {
 }) {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ nome: '', especialidade: 'Electricidade', telefone: '', email: '', notas: '' });
-  const set = (k: keyof typeof form) => (v: string) => setForm(p => ({ ...p, [k]: v }));
-  const cls = 'w-full px-3 py-2.5 text-sm border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white';
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const set = (k: keyof typeof form) => (v: string) => {
+    setForm(p => ({ ...p, [k]: v }));
+    setErrors(p => { const n = { ...p }; delete n[k]; return n; });
+  };
+  const cls = (err?: string) => `w-full px-3 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white ${err ? 'border-red-300 bg-red-50' : 'border-zinc-200'}`;
 
   const handleSave = async () => {
-    if (!form.nome.trim()) { toast.warning('Nome obrigatório.'); return; }
+    const e: Record<string, string> = {};
+    if (!form.nome.trim()) e.nome = 'Nome é obrigatório.';
+    if (form.telefone.trim()) {
+      const telErr = validateTelefone(form.telefone);
+      if (telErr) e.telefone = telErr;
+    }
+    if (form.email.trim()) {
+      const emailErr = validateEmail(form.email);
+      if (emailErr) e.email = emailErr;
+    }
+    if (Object.keys(e).length > 0) { setErrors(e); return; }
+
     setSaving(true);
     try {
       await addDoc(collection(db, 'fornecedores'), {
@@ -188,29 +204,47 @@ function NovoFornecedorModal({ condoId, onClose, onSuccess }: {
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-zinc-100 text-zinc-400"><X size={16} /></button>
         </div>
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
+          {/* Nome */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Nome / Empresa *</label>
-            <input className={cls} placeholder="Ex: Electro Luanda Lda." value={form.nome} onChange={e => set('nome')(e.target.value)} />
+            <input className={cls(errors.nome)} placeholder="Ex: Electro Luanda Lda." value={form.nome} onChange={e => set('nome')(e.target.value)} />
+            {errors.nome && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={11} />{errors.nome}</p>}
           </div>
+          {/* Especialidade */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Especialidade</label>
-            <select className={cls} value={form.especialidade} onChange={e => set('especialidade')(e.target.value)}>
+            <select className={cls()} value={form.especialidade} onChange={e => set('especialidade')(e.target.value)}>
               {ESPECIALIDADES.map(e => <option key={e} value={e}>{e}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-3">
+            {/* Telefone */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Telefone</label>
-              <input className={cls} placeholder="+244 9XX XXX XXX" value={form.telefone} onChange={e => set('telefone')(e.target.value)} />
+              <input
+                type="tel"
+                inputMode="numeric"
+                className={cls(errors.telefone)}
+                placeholder="9XX XXX XXX"
+                value={form.telefone}
+                onChange={e => set('telefone')(formatTelefone(e.target.value))}
+              />
+              {errors.telefone
+                ? <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={11} />{errors.telefone}</p>
+                : <p className="text-[10px] text-zinc-400">+244 9XX XXX XXX</p>
+              }
             </div>
+            {/* Email */}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Email</label>
-              <input type="email" className={cls} placeholder="email@empresa.com" value={form.email} onChange={e => set('email')(e.target.value)} />
+              <input type="email" className={cls(errors.email)} placeholder="email@empresa.com" value={form.email} onChange={e => set('email')(e.target.value)} />
+              {errors.email && <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={11} />{errors.email}</p>}
             </div>
           </div>
+          {/* Notas */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Notas</label>
-            <textarea className={cn(cls, 'resize-none')} rows={2} placeholder="Observações, condições, etc." value={form.notas} onChange={e => set('notas')(e.target.value)} />
+            <textarea className={cn(cls(), 'resize-none')} rows={2} placeholder="Observações, condições, etc." value={form.notas} onChange={e => set('notas')(e.target.value)} />
           </div>
         </div>
         <div className="flex gap-3 p-5 border-t border-zinc-100 shrink-0">

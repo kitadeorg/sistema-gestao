@@ -6,10 +6,11 @@ import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
 import {
   Settings, ArrowLeft, Save, Building2, MapPin,
-  Phone, Mail, CheckCircle2, Receipt, Loader2,
+  Phone, Mail, CheckCircle2, Receipt, Loader2, AlertCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { validateFinanceiro, LIMITES_FINANCEIROS, validateEmail, formatTelefone, validateTelefone } from '@/lib/validations/angola';
 
 interface CondominioConfig {
   nome: string;
@@ -34,7 +35,7 @@ interface CondominioConfig {
 }
 
 function Field({
-  label, value, onChange, type = 'text', placeholder, hint, min, max, prefix,
+  label, value, onChange, type = 'text', placeholder, hint, min, max, prefix, error,
 }: {
   label: string;
   value: string | number;
@@ -45,6 +46,7 @@ function Field({
   min?: number;
   max?: number;
   prefix?: string;
+  error?: string;
 }) {
   return (
     <div className="space-y-1.5">
@@ -61,12 +63,16 @@ function Field({
           min={min}
           max={max}
           className={cn(
-            'w-full py-2.5 text-sm border border-zinc-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white',
+            'w-full py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white',
             prefix ? 'pl-8 pr-3' : 'px-3',
+            error ? 'border-red-300 bg-red-50' : 'border-zinc-200',
           )}
         />
       </div>
-      {hint && <p className="text-xs text-zinc-400">{hint}</p>}
+      {error
+        ? <p className="text-xs text-red-500 flex items-center gap-1"><AlertCircle size={11} />{error}</p>
+        : hint && <p className="text-xs text-zinc-400">{hint}</p>
+      }
     </div>
   );
 }
@@ -89,6 +95,7 @@ export default function ConfiguracoesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
   const [saved, setSaved]     = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!condoId) return;
@@ -118,6 +125,38 @@ export default function ConfiguracoesPage() {
 
   const handleSave = async () => {
     if (!config || !condoId) return;
+
+    // Validação JS antes de guardar
+    const errors: Record<string, string> = {};
+
+    const quotaErr = validateFinanceiro(config.valorQuotaMensal, LIMITES_FINANCEIROS.valorQuota);
+    if (quotaErr) errors.valorQuotaMensal = quotaErr;
+
+    const diaErr = validateFinanceiro(config.diaVencimentoQuota, LIMITES_FINANCEIROS.diaVencimento);
+    if (diaErr) errors.diaVencimentoQuota = diaErr;
+
+    const multaErr = validateFinanceiro(config.multaPorAtraso, LIMITES_FINANCEIROS.multaAtraso);
+    if (multaErr) errors.multaPorAtraso = multaErr;
+
+    const jurosErr = validateFinanceiro(config.jurosMensal, LIMITES_FINANCEIROS.jurosMensal);
+    if (jurosErr) errors.jurosMensal = jurosErr;
+
+    if (config.contacto?.email) {
+      const emailErr = validateEmail(config.contacto.email);
+      if (emailErr) errors.contactoEmail = emailErr;
+    }
+
+    if (config.contacto?.telefone) {
+      const telErr = validateTelefone(config.contacto.telefone);
+      if (telErr) errors.contactoTelefone = telErr;
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+    setFieldErrors({});
+
     setSaving(true);
     try {
       // Guardar apenas os campos que gerimos — não sobrescrever totalMoradores, etc.
@@ -222,6 +261,7 @@ export default function ConfiguracoesPage() {
             placeholder="Ex: 15000"
             prefix="Kz"
             hint="Aplicado a todas as unidades sem quota individual"
+            error={fieldErrors.valorQuotaMensal}
           />
 
           <Field
@@ -233,6 +273,7 @@ export default function ConfiguracoesPage() {
             max={28}
             placeholder="5"
             hint="Dia do mês em que a quota vence (1–28)"
+            error={fieldErrors.diaVencimentoQuota}
           />
 
           <div className="grid grid-cols-2 gap-3">
@@ -244,6 +285,7 @@ export default function ConfiguracoesPage() {
               min={0}
               placeholder="0"
               hint="% sobre o valor em atraso"
+              error={fieldErrors.multaPorAtraso}
             />
             <Field
               label="Juros Mensal (%)"
@@ -253,6 +295,7 @@ export default function ConfiguracoesPage() {
               min={0}
               placeholder="0"
               hint="% ao mês sobre o valor em atraso"
+              error={fieldErrors.jurosMensal}
             />
           </div>
 
@@ -313,13 +356,19 @@ export default function ConfiguracoesPage() {
             onChange={v => setConfig(prev => prev ? { ...prev, contacto: { ...prev.contacto, email: v } } : prev)}
             type="email"
             placeholder="admin@condominio.ao"
+            error={fieldErrors.contactoEmail}
           />
           <Field
             label="Telefone"
             value={config.contacto?.telefone ?? ''}
-            onChange={v => setConfig(prev => prev ? { ...prev, contacto: { ...prev.contacto, telefone: v } } : prev)}
+            onChange={v => {
+              const masked = formatTelefone(v);
+              setConfig(prev => prev ? { ...prev, contacto: { ...prev.contacto, telefone: masked } } : prev);
+            }}
             type="tel"
-            placeholder="+244 9XX XXX XXX"
+            placeholder="9XX XXX XXX"
+            hint="Formato: +244 9XX XXX XXX"
+            error={fieldErrors.contactoTelefone}
           />
         </Section>
 
