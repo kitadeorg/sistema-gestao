@@ -51,6 +51,10 @@ export default function MoradorSidePanel({ condominioId, isOpen, onClose, onSucc
   const [docs, setDocs]     = useState<UploadedDoc[]>([]);
   const [unidades, setUnidades] = useState<{ id: string; numero: string; bloco?: string }[]>([]);
 
+  // Moradores já existentes na unidade selecionada
+  const [moradoresUnidade, setMoradoresUnidade] = useState<{ tipo: string }[]>([]);
+  const [loadingUnidade, setLoadingUnidade]     = useState(false);
+
   useEffect(() => {
     if (!isOpen) return;
     setForm({ unidadeId: '', nome: '', email: '', telefone: '', tipo: 'proprietario' });
@@ -58,6 +62,7 @@ export default function MoradorSidePanel({ condominioId, isOpen, onClose, onSucc
     setApiError(null);
     setDone(null);
     setDocs([]);
+    setMoradoresUnidade([]);
 
     const fetchUnidades = async () => {
       // Mostra TODAS as unidades (vagas e ocupadas) — permite múltiplos moradores
@@ -67,6 +72,35 @@ export default function MoradorSidePanel({ condominioId, isOpen, onClose, onSucc
     };
     fetchUnidades();
   }, [isOpen, condominioId]);
+
+  // Quando a unidade muda, verificar quem já lá mora
+  useEffect(() => {
+    if (!form.unidadeId) {
+      setMoradoresUnidade([]);
+      return;
+    }
+    const fetchMoradoresUnidade = async () => {
+      setLoadingUnidade(true);
+      const q = query(
+        collection(db, 'moradores'),
+        where('unidadeId', '==', form.unidadeId),
+      );
+      const snap = await getDocs(q);
+      const lista = snap.docs.map(d => ({ tipo: (d.data() as any).tipo }));
+      setMoradoresUnidade(lista);
+
+      // Ajustar o tipo automaticamente consoante o que já existe
+      const temProprietario = lista.some(m => m.tipo === 'proprietario');
+      const temInquilino    = lista.some(m => m.tipo === 'inquilino');
+      if (temProprietario && !temInquilino) {
+        setForm(prev => ({ ...prev, tipo: 'inquilino' }));
+      } else if (!temProprietario) {
+        setForm(prev => ({ ...prev, tipo: 'proprietario' }));
+      }
+      setLoadingUnidade(false);
+    };
+    fetchMoradoresUnidade();
+  }, [form.unidadeId]);
 
   if (!isOpen) return null;
 
@@ -78,6 +112,18 @@ export default function MoradorSidePanel({ condominioId, isOpen, onClose, onSucc
   const handleSubmit = async () => {
     const validation = validate(form);
     if (Object.keys(validation).length > 0) { setErrors(validation); return; }
+
+    // Validação de tipo por unidade
+    const temProprietario = moradoresUnidade.some(m => m.tipo === 'proprietario');
+    const temInquilino    = moradoresUnidade.some(m => m.tipo === 'inquilino');
+    if (temProprietario && form.tipo === 'proprietario') {
+      setApiError('Esta unidade já tem um Proprietário registado.');
+      return;
+    }
+    if (temInquilino && form.tipo === 'inquilino') {
+      setApiError('Esta unidade já tem um Inquilino registado.');
+      return;
+    }
 
     setSaving(true);
     setApiError(null);
@@ -229,10 +275,65 @@ export default function MoradorSidePanel({ condominioId, isOpen, onClose, onSucc
               {/* Tipo */}
               <div className="space-y-1">
                 <label className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Tipo</label>
-                <select value={form.tipo} onChange={e => set('tipo')(e.target.value)} className={inputCls()}>
-                  <option value="proprietario">Proprietário</option>
-                  <option value="inquilino">Inquilino</option>
-                </select>
+                {(() => {
+                  const temProprietario = moradoresUnidade.some(m => m.tipo === 'proprietario');
+                  const temInquilino    = moradoresUnidade.some(m => m.tipo === 'inquilino');
+                  const unidadeCheia    = temProprietario && temInquilino;
+
+                  if (!form.unidadeId) {
+                    return (
+                      <select value={form.tipo} onChange={e => set('tipo')(e.target.value)} className={inputCls()}>
+                        <option value="proprietario">Proprietário</option>
+                        <option value="inquilino">Inquilino</option>
+                      </select>
+                    );
+                  }
+
+                  if (loadingUnidade) {
+                    return (
+                      <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-zinc-200 bg-zinc-50 text-sm text-zinc-400">
+                        <Loader2 size={14} className="animate-spin" /> A verificar...
+                      </div>
+                    );
+                  }
+
+                  if (unidadeCheia) {
+                    return (
+                      <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-xl">
+                        <AlertCircle size={15} className="text-red-500 shrink-0 mt-0.5" />
+                        <p className="text-xs text-red-600 leading-relaxed">
+                          Esta unidade já tem um <b>Proprietário</b> e um <b>Inquilino</b> registados.
+                          Não é possível adicionar mais moradores.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <>
+                      <select
+                        value={form.tipo}
+                        onChange={e => set('tipo')(e.target.value)}
+                        className={inputCls()}
+                      >
+                        {!temProprietario && <option value="proprietario">Proprietário</option>}
+                        {!temInquilino    && <option value="inquilino">Inquilino</option>}
+                      </select>
+                      {temProprietario && (
+                        <p className="text-[11px] text-amber-600 flex items-center gap-1 mt-1">
+                          <AlertCircle size={11} />
+                          Esta unidade já tem um Proprietário — só pode adicionar um Inquilino.
+                        </p>
+                      )}
+                      {temInquilino && (
+                        <p className="text-[11px] text-amber-600 flex items-center gap-1 mt-1">
+                          <AlertCircle size={11} />
+                          Esta unidade já tem um Inquilino — só pode adicionar um Proprietário.
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Documentos */}
@@ -266,8 +367,10 @@ export default function MoradorSidePanel({ condominioId, isOpen, onClose, onSucc
             <button onClick={() => !saving && onClose()} className="flex-1 px-4 py-2.5 text-sm font-medium text-zinc-600 border border-zinc-200 rounded-xl hover:bg-zinc-50 transition-colors">
               Cancelar
             </button>
-            <button onClick={handleSubmit} disabled={saving}
-              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 text-white text-sm font-semibold rounded-xl transition-colors">
+            <button
+              onClick={handleSubmit}
+              disabled={saving || (moradoresUnidade.some(m => m.tipo === 'proprietario') && moradoresUnidade.some(m => m.tipo === 'inquilino'))}
+              className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl transition-colors">
               {saving ? <><Loader2 size={16} className="animate-spin" />A enviar...</> : <><Users size={16} />Convidar</>}
             </button>
           </div>

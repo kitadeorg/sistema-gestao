@@ -55,7 +55,7 @@ export default function UnidadeDetailContent() {
   };
 
   const [unidade, setUnidade] = useState<Unidade | null>(null);
-  const [morador, setMorador] = useState<Morador | null>(null);
+  const [moradores, setMoradores] = useState<Morador[]>([]);
   const [ocorrencias, setOcorrencias] = useState<any[]>([]);
   const [manutencoes, setManutencoes] = useState<any[]>([]);
   const [financeiroResumo, setFinanceiroResumo] = useState({
@@ -89,7 +89,7 @@ export default function UnidadeDetailContent() {
 
         setUnidade(unidadeData);
 
-        // 2️⃣ Morador da unidade
+        // 2️⃣ Moradores da unidade (proprietário + inquilino)
         const moradorSnap = await getDocs(
           query(
             collection(db, 'moradores'),
@@ -97,13 +97,12 @@ export default function UnidadeDetailContent() {
           )
         );
 
-        if (!moradorSnap.empty) {
-          const moradorDoc = moradorSnap.docs[0];
-          setMorador({
-            id: moradorDoc.id,
-            ...moradorDoc.data(),
-          } as Morador);
-        }
+        setMoradores(
+          moradorSnap.docs.map((d) => ({
+            id: d.id,
+            ...d.data(),
+          } as Morador))
+        );
 
         // 3️⃣ Financeiro
         const pagamentosSnap = await getDocs(
@@ -197,23 +196,60 @@ export default function UnidadeDetailContent() {
         </div>
       </div>
 
-      {/* MORADOR */}
+      {/* MORADORES */}
       <div className="bg-white text-black rounded-2xl p-6 border border-zinc-200">
-        <h2 className="font-semibold text-black mb-4">Morador Atual</h2>
-        {morador ? (
-          <div className="space-y-2 text-black text-sm">
-            <p className="flex text-black items-center gap-2">
-              <User size={14} /> {morador.nome}
-            </p>
-            <p className="flex text-black items-center gap-2">
-              <Mail size={14} /> {morador.email || '-'}
-            </p>
-            <p className="flex text-black text-black items-center gap-2">
-              <Phone size={14} /> {morador.telefone || '-'}
-            </p>
-          </div>
+        <h2 className="font-semibold text-black mb-4">Moradores</h2>
+        {moradores.length === 0 ? (
+          <p className="text-zinc-400">Unidade vaga</p>
         ) : (
-          <p className="text-zinc-400 text-black">Unidade vaga</p>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {(['proprietario', 'inquilino'] as const).map((tipo) => {
+              const m = moradores.find((x) => x.tipo === tipo);
+              const label = tipo === 'proprietario' ? 'Proprietário' : 'Inquilino';
+              return (
+                <div
+                  key={tipo}
+                  className={`rounded-xl border p-4 space-y-2 text-sm ${
+                    m
+                      ? 'border-zinc-200 bg-zinc-50'
+                      : 'border-dashed border-zinc-200 bg-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                      tipo === 'proprietario'
+                        ? 'bg-orange-100 text-orange-700'
+                        : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      {label}
+                    </span>
+                  </div>
+                  {m ? (
+                    <>
+                      <p className="flex items-center gap-2 font-semibold text-zinc-900">
+                        <User size={14} className="text-zinc-400 shrink-0" />
+                        {m.nome}
+                      </p>
+                      {m.email && (
+                        <p className="flex items-center gap-2 text-zinc-500">
+                          <Mail size={13} className="shrink-0" />
+                          {m.email}
+                        </p>
+                      )}
+                      {m.telefone && (
+                        <p className="flex items-center gap-2 text-zinc-500">
+                          <Phone size={13} className="shrink-0" />
+                          {m.telefone}
+                        </p>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-zinc-400 italic text-xs">Sem {label.toLowerCase()} registado</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
