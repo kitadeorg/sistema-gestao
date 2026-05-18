@@ -92,19 +92,13 @@ export default function AuthPage() {
 
   // Apanhar resultado do redirect Google + gerir sessão
   useEffect(() => {
-    // 1️⃣ Primeiro tentar apanhar resultado de redirect Google
     getRedirectResult(auth)
       .then(async (redirectResult) => {
-        console.log('[Google Redirect] resultado:', redirectResult);
-        console.log('[Google Redirect] user:', redirectResult?.user);
-
         if (redirectResult?.user) {
-          // Vem de um redirect Google — processar login
           setIsLoading(true);
           try {
             await handleGoogleUser(redirectResult.user);
           } catch (err: any) {
-            console.error('[Google Redirect] erro ao processar user:', err);
             const msg = err?.message && !err?.code ? err.message : mapFirebaseError(err?.code ?? '');
             toast.error(msg);
             setErrors({ general: msg });
@@ -112,10 +106,7 @@ export default function AuthPage() {
             setAuthReady(true);
           }
         } else {
-          console.log('[Google Redirect] sem redirect pendente — a verificar sessão normal');
-          // Sem redirect pendente — verificar sessão normal
           const unsub = onAuthStateChanged(auth, (user) => {
-            console.log('[onAuthStateChanged] user:', user?.email ?? 'null');
             if (user) {
               router.replace('/dashboard');
             } else {
@@ -125,9 +116,7 @@ export default function AuthPage() {
           return () => unsub();
         }
       })
-      .catch((err) => {
-        console.error('[Google Redirect] erro no getRedirectResult:', err);
-        // Erro ao verificar redirect — continuar com sessão normal
+      .catch(() => {
         const unsub = onAuthStateChanged(auth, (user) => {
           if (user) {
             router.replace('/dashboard');
