@@ -10,7 +10,6 @@ import {
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
-  signInWithPopup,
   signInWithRedirect,
   getRedirectResult,
   sendPasswordResetEmail,
@@ -93,25 +92,44 @@ export default function AuthPage() {
 
   // Redirecionar se já autenticado + apanhar resultado de redirect Google
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        // Verificar se vem de um redirect do Google
-        try {
-          const redirectResult = await getRedirectResult(auth);
-          if (redirectResult) {
-            await handleGoogleUser(redirectResult.user);
-            return;
-          }
-        } catch {
-          // sem redirect pendente — ignorar
+    let handled = false;
+
+    const processRedirect = async () => {
+      try {
+        const redirectResult = await getRedirectResult(auth);
+        if (redirectResult?.user) {
+          handled = true;
+          setIsLoading(true);
+          await handleGoogleUser(redirectResult.user);
         }
+      } catch (err: any) {
+        if (err?.message && !err?.code) {
+          toast.error(err.message);
+          setErrors({ general: err.message });
+        } else if (err?.code) {
+          const msg = mapFirebaseError(err.code);
+          toast.error(msg);
+          setErrors({ general: msg });
+        }
+        setIsLoading(false);
+        setAuthReady(true);
+      }
+    };
+
+    processRedirect();
+
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (handled) return; // já tratado pelo redirect
+      if (user) {
         router.replace('/dashboard');
       } else {
         setAuthReady(true);
       }
     });
+
     return () => unsub();
-  }, [router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const clearErrors = () => setErrors({});
 
@@ -228,46 +246,16 @@ export default function AuthPage() {
   const handleGoogle = async () => {
     setIsLoading(true);
     clearErrors();
-    const provider = new GoogleAuthProvider();
-    provider.setCustomParameters({ prompt: 'select_account' });
-
     try {
-      // Tentar popup primeiro
-      const result = await signInWithPopup(auth, provider);
-      await handleGoogleUser(result.user);
-
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: 'select_account' });
+      // Usar sempre redirect — mais fiável que popup em todos os browsers
+      await signInWithRedirect(auth, provider);
+      // A página vai redirecionar para o Google — o resultado é tratado no useEffect
     } catch (err: any) {
-      // Popup bloqueado → usar redirect
-      if (
-        err?.code === 'auth/popup-blocked' ||
-        err?.code === 'auth/popup-closed-by-user' ||
-        err?.code === 'auth/cancelled-popup-request'
-      ) {
-        if (err?.code === 'auth/popup-blocked') {
-          toast.info(
-            'O popup foi bloqueado pelo browser. A redirecionar para o login com Google...',
-            { duration: 3000 }
-          );
-          setTimeout(async () => {
-            await signInWithRedirect(auth, provider);
-          }, 1500);
-        }
-        setIsLoading(false);
-        return;
-      }
-
-      // Erros manuais (sem code)
-      if (err?.message && !err?.code) {
-        toast.error(err.message);
-        setErrors({ general: err.message });
-        setIsLoading(false);
-        return;
-      }
-
       const msg = mapFirebaseError(err?.code ?? '');
       toast.error(msg);
       setErrors({ general: msg });
-    } finally {
       setIsLoading(false);
     }
   };
