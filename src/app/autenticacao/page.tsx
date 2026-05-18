@@ -11,7 +11,6 @@ import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
-  sendPasswordResetEmail,
   signOut,
   onAuthStateChanged,
 } from 'firebase/auth';
@@ -206,14 +205,20 @@ export default function AuthPage() {
 
     setIsLoading(true);
     try {
-      await sendPasswordResetEmail(auth, normalizeEmail(email));
-      toast.success('Email de recuperação enviado! Verifique a sua caixa de entrada.');
+      const res = await fetch('/api/reset-password/solicitar', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ email: email.trim() }),
+      });
+
+      if (!res.ok) throw new Error('Erro ao enviar email.');
+
+      // Mensagem sempre igual — não revelar se o email existe
+      toast.success('Se o email existir na nossa base de dados, receberá um link em breve.');
       setMode('login');
       setEmail('');
-    } catch (err: any) {
-      const msg = mapFirebaseError(err.code);
-      toast.error(msg);
-      setErrors({ general: msg });
+    } catch {
+      toast.error('Erro ao enviar email. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
