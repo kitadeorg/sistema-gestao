@@ -37,8 +37,11 @@ function mapFirebaseError(code: string): string {
     'auth/network-request-failed': 'Erro de ligação. Verifique a sua internet.',
     'auth/too-many-requests':      'Demasiadas tentativas. Tente mais tarde.',
     'auth/popup-closed-by-user':   'Login cancelado.',
+    'auth/unauthorized-domain':    'Este domínio não está autorizado para login com Google. Contacte o administrador.',
+    'auth/operation-not-allowed':  'Login com Google não está ativado. Contacte o administrador.',
+    'auth/popup-blocked':          'O popup foi bloqueado pelo browser. Permita popups para este site e tente novamente.',
   };
-  return map[code] ?? 'Erro desconhecido. Tente novamente.';
+  return map[code] ?? `Erro ao autenticar (${code}). Tente novamente.`;
 }
 
 // ─────────────────────────────────────────────
