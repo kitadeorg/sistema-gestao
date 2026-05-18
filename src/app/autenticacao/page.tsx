@@ -11,6 +11,8 @@ import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   sendPasswordResetEmail,
   signOut,
   onAuthStateChanged,
@@ -89,10 +91,20 @@ export default function AuthPage() {
   const [authReady,   setAuthReady]   = useState(false);
   const [errors,      setErrors]      = useState<Record<string, string>>({});
 
-  // Redirecionar se já autenticado
+  // Redirecionar se já autenticado + apanhar resultado de redirect Google
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (user) => {
+    const unsub = onAuthStateChanged(auth, async (user) => {
       if (user) {
+        // Verificar se vem de um redirect do Google
+        try {
+          const redirectResult = await getRedirectResult(auth);
+          if (redirectResult) {
+            await handleGoogleUser(redirectResult.user);
+            return;
+          }
+        } catch {
+          // sem redirect pendente — ignorar
+        }
         router.replace('/dashboard');
       } else {
         setAuthReady(true);
@@ -102,6 +114,45 @@ export default function AuthPage() {
   }, [router]);
 
   const clearErrors = () => setErrors({});
+
+  // ── PROCESSAR UTILIZADOR GOOGLE ────────────
+
+  const handleGoogleUser = async (googleUser: { uid: string; email: string | null }) => {
+    // 1️⃣ Tentar encontrar pelo UID
+    let snap = await getDoc(doc(db, 'usuarios', googleUser.uid));
+
+    // 2️⃣ Fallback: procurar pelo email
+    if (!snap.exists() && googleUser.email) {
+      const q = query(
+        collection(db, 'usuarios'),
+        where('email', '==', googleUser.email.toLowerCase().trim())
+      );
+      const emailSnap = await getDocs(q);
+      if (!emailSnap.empty) {
+        snap = emailSnap.docs[0] as any;
+      }
+    }
+
+    if (!snap.exists()) {
+      await signOut(auth);
+      throw new Error('Email não autorizado. Contacte o administrador.');
+    }
+
+    const data = snap.data();
+    if (data.status === 'inativo') {
+      await signOut(auth);
+      throw new Error('A sua conta está desativada. Contacte o administrador.');
+    }
+
+    if (data.mustChangeCredentials) {
+      toast.success('Primeiro acesso! Vamos configurar a sua conta.');
+      setTimeout(() => router.push('/dashboard/setup'), 800);
+      return;
+    }
+
+    toast.success('Login com Google efetuado!');
+    setTimeout(() => router.push('/dashboard'), 800);
+  };
 
   // ── LOGIN ──────────────────────────────────
 
@@ -177,58 +228,42 @@ export default function AuthPage() {
   const handleGoogle = async () => {
     setIsLoading(true);
     clearErrors();
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
     try {
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: 'select_account' });
+      // Tentar popup primeiro
       const result = await signInWithPopup(auth, provider);
-
-      // 1️⃣ Tentar encontrar o utilizador pelo UID do Google
-      let snap = await getDoc(doc(db, 'usuarios', result.user.uid));
-
-      // 2️⃣ Fallback: procurar pelo email (conta criada via email/password tem UID diferente)
-      if (!snap.exists() && result.user.email) {
-        const q = query(
-          collection(db, 'usuarios'),
-          where('email', '==', result.user.email.toLowerCase().trim())
-        );
-        const emailSnap = await getDocs(q);
-        if (!emailSnap.empty) {
-          snap = emailSnap.docs[0] as any;
-        }
-      }
-
-      if (!snap.exists()) {
-        await signOut(auth);
-        throw new Error('Email não autorizado. Contacte o administrador.');
-      }
-
-      const data = snap.data();
-      if (data.status === 'inativo') {
-        await signOut(auth);
-        throw new Error('A sua conta está desativada. Contacte o administrador.');
-      }
-
-      if (data.mustChangeCredentials) {
-        toast.success('Primeiro acesso! Vamos configurar a sua conta.');
-        setTimeout(() => router.push('/dashboard/setup'), 800);
-        return;
-      }
-
-      toast.success('Login com Google efetuado!');
-      setTimeout(() => router.push('/dashboard'), 800);
+      await handleGoogleUser(result.user);
 
     } catch (err: any) {
-      // Erros lançados manualmente (sem code) — mostrar mensagem diretamente
-      if (err?.message && !err?.code) {
-        toast.error(err.message);
-        setErrors({ general: err.message });
-        return;
-      }
-      // Ignorar cancelamento do popup
-      if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
+      // Popup bloqueado → usar redirect
+      if (
+        err?.code === 'auth/popup-blocked' ||
+        err?.code === 'auth/popup-closed-by-user' ||
+        err?.code === 'auth/cancelled-popup-request'
+      ) {
+        if (err?.code === 'auth/popup-blocked') {
+          toast.info(
+            'O popup foi bloqueado pelo browser. A redirecionar para o login com Google...',
+            { duration: 3000 }
+          );
+          setTimeout(async () => {
+            await signInWithRedirect(auth, provider);
+          }, 1500);
+        }
         setIsLoading(false);
         return;
       }
+
+      // Erros manuais (sem code)
+      if (err?.message && !err?.code) {
+        toast.error(err.message);
+        setErrors({ general: err.message });
+        setIsLoading(false);
+        return;
+      }
+
       const msg = mapFirebaseError(err?.code ?? '');
       toast.error(msg);
       setErrors({ general: msg });
