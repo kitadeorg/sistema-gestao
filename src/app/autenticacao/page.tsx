@@ -90,44 +90,46 @@ export default function AuthPage() {
   const [authReady,   setAuthReady]   = useState(false);
   const [errors,      setErrors]      = useState<Record<string, string>>({});
 
-  // Redirecionar se já autenticado + apanhar resultado de redirect Google
+  // Apanhar resultado do redirect Google + gerir sessão
   useEffect(() => {
-    let handled = false;
-
-    const processRedirect = async () => {
-      try {
-        const redirectResult = await getRedirectResult(auth);
+    // 1️⃣ Primeiro tentar apanhar resultado de redirect Google
+    getRedirectResult(auth)
+      .then(async (redirectResult) => {
         if (redirectResult?.user) {
-          handled = true;
+          // Vem de um redirect Google — processar login
           setIsLoading(true);
-          await handleGoogleUser(redirectResult.user);
+          try {
+            await handleGoogleUser(redirectResult.user);
+          } catch (err: any) {
+            const msg = err?.message && !err?.code ? err.message : mapFirebaseError(err?.code ?? '');
+            toast.error(msg);
+            setErrors({ general: msg });
+            setIsLoading(false);
+            setAuthReady(true);
+          }
+        } else {
+          // Sem redirect pendente — verificar sessão normal
+          const unsub = onAuthStateChanged(auth, (user) => {
+            if (user) {
+              router.replace('/dashboard');
+            } else {
+              setAuthReady(true);
+            }
+          });
+          return () => unsub();
         }
-      } catch (err: any) {
-        if (err?.message && !err?.code) {
-          toast.error(err.message);
-          setErrors({ general: err.message });
-        } else if (err?.code) {
-          const msg = mapFirebaseError(err.code);
-          toast.error(msg);
-          setErrors({ general: msg });
-        }
-        setIsLoading(false);
-        setAuthReady(true);
-      }
-    };
-
-    processRedirect();
-
-    const unsub = onAuthStateChanged(auth, (user) => {
-      if (handled) return; // já tratado pelo redirect
-      if (user) {
-        router.replace('/dashboard');
-      } else {
-        setAuthReady(true);
-      }
-    });
-
-    return () => unsub();
+      })
+      .catch(() => {
+        // Erro ao verificar redirect — continuar com sessão normal
+        const unsub = onAuthStateChanged(auth, (user) => {
+          if (user) {
+            router.replace('/dashboard');
+          } else {
+            setAuthReady(true);
+          }
+        });
+        return () => unsub();
+      });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -164,12 +166,12 @@ export default function AuthPage() {
 
     if (data.mustChangeCredentials) {
       toast.success('Primeiro acesso! Vamos configurar a sua conta.');
-      setTimeout(() => router.push('/dashboard/setup'), 800);
+      router.push('/dashboard/setup');
       return;
     }
 
     toast.success('Login com Google efetuado!');
-    setTimeout(() => router.push('/dashboard'), 800);
+    router.replace('/dashboard');
   };
 
   // ── LOGIN ──────────────────────────────────
