@@ -16,7 +16,7 @@ import {
   onAuthStateChanged,
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, getDocs, collection, query, where } from 'firebase/firestore';
 import { toast } from 'sonner';
 
 // ─────────────────────────────────────────────
@@ -179,7 +179,21 @@ export default function AuthPage() {
       provider.setCustomParameters({ prompt: 'select_account' });
       const result = await signInWithPopup(auth, provider);
 
-      const snap = await getDoc(doc(db, 'usuarios', result.user.uid));
+      // 1️⃣ Tentar encontrar o utilizador pelo UID do Google
+      let snap = await getDoc(doc(db, 'usuarios', result.user.uid));
+
+      // 2️⃣ Fallback: procurar pelo email (conta criada via email/password tem UID diferente)
+      if (!snap.exists() && result.user.email) {
+        const q = query(
+          collection(db, 'usuarios'),
+          where('email', '==', result.user.email.toLowerCase().trim())
+        );
+        const emailSnap = await getDocs(q);
+        if (!emailSnap.empty) {
+          snap = emailSnap.docs[0] as any;
+        }
+      }
+
       if (!snap.exists()) {
         await signOut(auth);
         throw new Error('Email não autorizado. Contacte o administrador.');
@@ -201,7 +215,18 @@ export default function AuthPage() {
       setTimeout(() => router.push('/dashboard'), 800);
 
     } catch (err: any) {
-      const msg = err.message && !err.code ? err.message : mapFirebaseError(err.code);
+      // Erros lançados manualmente (sem code) — mostrar mensagem diretamente
+      if (err?.message && !err?.code) {
+        toast.error(err.message);
+        setErrors({ general: err.message });
+        return;
+      }
+      // Ignorar cancelamento do popup
+      if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
+        setIsLoading(false);
+        return;
+      }
+      const msg = mapFirebaseError(err?.code ?? '');
       toast.error(msg);
       setErrors({ general: msg });
     } finally {
