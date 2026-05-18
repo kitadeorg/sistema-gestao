@@ -166,6 +166,13 @@ export default function AuthPage() {
       }
 
       const data = snap.data();
+
+      // Conta vinculada ao Google — não pode entrar com senha
+      if (data.loginProvider === 'google') {
+        await signOut(auth);
+        throw new Error('Esta conta usa o Google para autenticação. Clique em "Entrar com Google" para aceder.');
+      }
+
       if (data.status === 'inativo') {
         await signOut(auth);
         throw new Error('A sua conta está desativada. Contacte o administrador.');

@@ -30,6 +30,9 @@ export default function SetupPage() {
   const [saving,      setSaving]      = useState(false);
   const [done,        setDone]        = useState(false);
 
+  // Detectar se entrou com Google (não tem password provider)
+  const isGoogleUser = user?.providerData?.some(p => p.providerId === 'google.com') ?? false;
+
   // Pré-preencher com o nome actual
   useEffect(() => {
     if (userData?.nome) setNome(userData.nome);
@@ -44,9 +47,12 @@ export default function SetupPage() {
   const validate = (): string | null => {
     if (!nome.trim())           return 'O nome é obrigatório.';
     if (nome.trim().length < 3) return 'O nome deve ter pelo menos 3 caracteres.';
-    if (!novaSenha)             return 'A nova senha é obrigatória.';
-    if (novaSenha.length < 8)   return 'A senha deve ter pelo menos 8 caracteres.';
-    if (novaSenha !== confirmar) return 'As senhas não coincidem.';
+    // Só valida senha se não for utilizador Google
+    if (!isGoogleUser) {
+      if (!novaSenha)              return 'A nova senha é obrigatória.';
+      if (novaSenha.length < 8)    return 'A senha deve ter pelo menos 8 caracteres.';
+      if (novaSenha !== confirmar) return 'As senhas não coincidem.';
+    }
     return null;
   };
 
@@ -58,8 +64,10 @@ export default function SetupPage() {
 
     setSaving(true);
     try {
-      // 1. Actualizar senha no Firebase Auth
-      await updatePassword(user, novaSenha);
+      // 1. Actualizar senha — só para utilizadores email/password
+      if (!isGoogleUser) {
+        await updatePassword(user, novaSenha);
+      }
 
       // 2. Actualizar displayName no Firebase Auth
       await updateProfile(user, { displayName: nome.trim() });
@@ -71,6 +79,7 @@ export default function SetupPage() {
         tempUsername:          null,
         tempPassword:          null,
         status:                'ativo',
+        loginProvider:         isGoogleUser ? 'google' : 'email',
         updatedAt:             serverTimestamp(),
       });
 
@@ -152,7 +161,12 @@ export default function SetupPage() {
           <div className="flex items-start gap-3 p-3.5 bg-amber-50 border border-amber-200 rounded-xl mb-6">
             <ShieldCheck className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
             <p className="text-xs text-amber-800 leading-relaxed">
-              As suas credenciais de acesso são temporárias. Defina agora um nome e senha que só você conhece.
+              {isGoogleUser
+                ? <>
+                    Entrou com a sua conta Google. A partir de agora, <b>só poderá aceder com o botão "Entrar com Google"</b> — não será possível usar email e senha nesta conta.
+                  </>
+                : 'As suas credenciais de acesso são temporárias. Defina agora um nome e senha que só você conhece.'
+              }
             </p>
           </div>
 
@@ -176,74 +190,76 @@ export default function SetupPage() {
               </div>
             </div>
 
-            {/* Nova senha */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-                Nova senha
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4" />
-                <input
-                  type={showPass ? 'text' : 'password'}
-                  value={novaSenha}
-                  onChange={e => setNovaSenha(e.target.value)}
-                  placeholder="Mínimo 8 caracteres"
-                  disabled={saving}
-                  className="w-full pl-9 pr-10 py-2.5 rounded-xl border border-zinc-200 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 disabled:opacity-60"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPass(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
-                >
-                  {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              {/* Indicador de força */}
-              {novaSenha && (
-                <PasswordStrength password={novaSenha} />
-              )}
-            </div>
+            {/* Campos de senha — só para utilizadores email/password */}
+            {!isGoogleUser && (
+              <>
+                {/* Nova senha */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                    Nova senha
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4" />
+                    <input
+                      type={showPass ? 'text' : 'password'}
+                      value={novaSenha}
+                      onChange={e => setNovaSenha(e.target.value)}
+                      placeholder="Mínimo 8 caracteres"
+                      disabled={saving}
+                      className="w-full pl-9 pr-10 py-2.5 rounded-xl border border-zinc-200 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 disabled:opacity-60"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPass(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                    >
+                      {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {novaSenha && <PasswordStrength password={novaSenha} />}
+                </div>
 
-            {/* Confirmar senha */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">
-                Confirmar senha
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4" />
-                <input
-                  type={showConfirm ? 'text' : 'password'}
-                  value={confirmar}
-                  onChange={e => setConfirmar(e.target.value)}
-                  placeholder="Repita a senha"
-                  disabled={saving}
-                  className={cn(
-                    'w-full pl-9 pr-10 py-2.5 rounded-xl border text-sm text-zinc-900 focus:outline-none focus:ring-2 disabled:opacity-60',
-                    confirmar && novaSenha !== confirmar
-                      ? 'border-red-300 focus:ring-red-200 focus:border-red-400'
-                      : confirmar && novaSenha === confirmar
-                        ? 'border-emerald-300 focus:ring-emerald-200 focus:border-emerald-400'
-                        : 'border-zinc-200 focus:ring-orange-500/20 focus:border-orange-500',
+                {/* Confirmar senha */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                    Confirmar senha
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 w-4 h-4" />
+                    <input
+                      type={showConfirm ? 'text' : 'password'}
+                      value={confirmar}
+                      onChange={e => setConfirmar(e.target.value)}
+                      placeholder="Repita a senha"
+                      disabled={saving}
+                      className={cn(
+                        'w-full pl-9 pr-10 py-2.5 rounded-xl border text-sm text-zinc-900 focus:outline-none focus:ring-2 disabled:opacity-60',
+                        confirmar && novaSenha !== confirmar
+                          ? 'border-red-300 focus:ring-red-200 focus:border-red-400'
+                          : confirmar && novaSenha === confirmar
+                            ? 'border-emerald-300 focus:ring-emerald-200 focus:border-emerald-400'
+                            : 'border-zinc-200 focus:ring-orange-500/20 focus:border-orange-500',
+                      )}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirm(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                    >
+                      {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {confirmar && novaSenha !== confirmar && (
+                    <p className="text-xs text-red-500">As senhas não coincidem.</p>
                   )}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowConfirm(v => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
-                >
-                  {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-              {confirmar && novaSenha !== confirmar && (
-                <p className="text-xs text-red-500">As senhas não coincidem.</p>
-              )}
-              {confirmar && novaSenha === confirmar && (
-                <p className="text-xs text-emerald-600 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> Senhas coincidem.
-                </p>
-              )}
-            </div>
+                  {confirmar && novaSenha === confirmar && (
+                    <p className="text-xs text-emerald-600 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" /> Senhas coincidem.
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
 
             <button
               type="submit"
