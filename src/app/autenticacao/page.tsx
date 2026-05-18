@@ -10,8 +10,7 @@ import {
 import {
   signInWithEmailAndPassword,
   GoogleAuthProvider,
-  signInWithRedirect,
-  getRedirectResult,
+  signInWithPopup,
   sendPasswordResetEmail,
   signOut,
   onAuthStateChanged,
@@ -90,42 +89,16 @@ export default function AuthPage() {
   const [authReady,   setAuthReady]   = useState(false);
   const [errors,      setErrors]      = useState<Record<string, string>>({});
 
-  // Apanhar resultado do redirect Google + gerir sessão
+  // Gerir sessão
   useEffect(() => {
-    getRedirectResult(auth)
-      .then(async (redirectResult) => {
-        if (redirectResult?.user) {
-          setIsLoading(true);
-          try {
-            await handleGoogleUser(redirectResult.user);
-          } catch (err: any) {
-            const msg = err?.message && !err?.code ? err.message : mapFirebaseError(err?.code ?? '');
-            toast.error(msg);
-            setErrors({ general: msg });
-            setIsLoading(false);
-            setAuthReady(true);
-          }
-        } else {
-          const unsub = onAuthStateChanged(auth, (user) => {
-            if (user) {
-              router.replace('/dashboard');
-            } else {
-              setAuthReady(true);
-            }
-          });
-          return () => unsub();
-        }
-      })
-      .catch(() => {
-        const unsub = onAuthStateChanged(auth, (user) => {
-          if (user) {
-            router.replace('/dashboard');
-          } else {
-            setAuthReady(true);
-          }
-        });
-        return () => unsub();
-      });
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        router.replace('/dashboard');
+      } else {
+        setAuthReady(true);
+      }
+    });
+    return () => unsub();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -247,13 +220,21 @@ export default function AuthPage() {
     try {
       const provider = new GoogleAuthProvider();
       provider.setCustomParameters({ prompt: 'select_account' });
-      // Usar sempre redirect — mais fiável que popup em todos os browsers
-      await signInWithRedirect(auth, provider);
-      // A página vai redirecionar para o Google — o resultado é tratado no useEffect
+      const result = await signInWithPopup(auth, provider);
+      await handleGoogleUser(result.user);
     } catch (err: any) {
-      const msg = mapFirebaseError(err?.code ?? '');
-      toast.error(msg);
-      setErrors({ general: msg });
+      if (err?.code === 'auth/popup-closed-by-user' || err?.code === 'auth/cancelled-popup-request') {
+        setIsLoading(false);
+        return;
+      }
+      if (err?.message && !err?.code) {
+        toast.error(err.message);
+        setErrors({ general: err.message });
+      } else {
+        const msg = mapFirebaseError(err?.code ?? '');
+        toast.error(msg);
+        setErrors({ general: msg });
+      }
       setIsLoading(false);
     }
   };
