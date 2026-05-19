@@ -5,7 +5,10 @@ import { getUnidades } from '@/lib/firebase/unidades';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
 import { useAuthContext } from '@/contexts/AuthContext';
-import { Unidade, MoradorDoc } from '@/types/firestore';
+import { UnidadeDoc, MoradorDoc } from '@/types/firestore';
+
+// Tipo com id incluído (como vem do Firestore)
+export type Unidade = { id: string } & Partial<UnidadeDoc> & Record<string, any>;
 
 export function useUnidades(condoId: string) {
 

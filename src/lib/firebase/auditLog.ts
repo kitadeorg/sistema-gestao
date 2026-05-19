@@ -52,6 +52,7 @@ export type AuditAccao =
   | 'conta_activada'
   // Moradores
   | 'morador_criado'
+  | 'morador_editado'
   | 'morador_eliminado'
   // Visitantes
   | 'visitante_registado'
@@ -138,6 +139,7 @@ export const CATEGORIA_MAP: Record<AuditAccao, AuditCategoria> = {
   primeiro_login:          'acesso',
   conta_activada:          'acesso',
   morador_criado:          'moradores',
+  morador_editado:         'moradores',
   morador_eliminado:       'moradores',
   visitante_registado:     'visitantes',
   visitante_saida:         'visitantes',

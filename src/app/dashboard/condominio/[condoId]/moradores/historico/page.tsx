@@ -181,8 +181,14 @@ export default function HistoricoResidenciaPage() {
 
                 {/* Duração */}
                 {h.dataEntrada && h.dataSaida && (() => {
-                  const entrada = h.dataEntrada?.toDate?.() ?? new Date(h.dataEntrada);
-                  const saida   = h.dataSaida?.toDate?.()   ?? new Date(h.dataSaida);
+                  const toDate = (v: any): Date => {
+                    if (!v) return new Date(0);
+                    if (typeof v.toDate === 'function') return v.toDate();
+                    if (v instanceof Date) return v;
+                    return new Date(0);
+                  };
+                  const entrada = toDate(h.dataEntrada);
+                  const saida   = toDate(h.dataSaida);
                   const meses   = Math.round((saida.getTime() - entrada.getTime()) / (1000 * 60 * 60 * 24 * 30));
                   if (meses <= 0) return null;
                   return (
