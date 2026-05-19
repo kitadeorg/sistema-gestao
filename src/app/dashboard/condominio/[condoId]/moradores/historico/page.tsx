@@ -28,9 +28,13 @@ export default function HistoricoResidenciaPage() {
       const data = await getHistoricoResidencia(condoId);
       // Ordenar por dataSaida desc
       data.sort((a, b) => {
-        const da = a.dataSaida?.toDate?.() ?? new Date(0);
-        const db_ = b.dataSaida?.toDate?.() ?? new Date(0);
-        return db_.getTime() - da.getTime();
+        const toMs = (v: any) => {
+          if (!v) return 0;
+          if (typeof v.toDate === 'function') return v.toDate().getTime();
+          if (v instanceof Date) return v.getTime();
+          return 0;
+        };
+        return toMs(b.dataSaida) - toMs(a.dataSaida);
       });
       setHistorico(data);
     } catch (e) {
