@@ -106,10 +106,10 @@ export default function AuthPage() {
   // ── PROCESSAR UTILIZADOR GOOGLE ────────────
 
   const handleGoogleUser = async (googleUser: { uid: string; email: string | null }) => {
-    // 1️⃣ Tentar encontrar pelo UID
+    // Tentar encontrar pelo UID
     let snap = await getDoc(doc(db, 'usuarios', googleUser.uid));
 
-    // 2️⃣ Fallback: procurar pelo email
+    // Fallback: procurar pelo email
     if (!snap.exists() && googleUser.email) {
       const q = query(
         collection(db, 'usuarios'),

@@ -5,10 +5,12 @@ import { FieldValue } from 'firebase-admin/firestore';
 import crypto from 'crypto';
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: process.env.EMAIL_HOST,
+  port: Number(process.env.EMAIL_PORT ?? 465),
+  secure: true,
   auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD,
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
 });
 
@@ -57,7 +59,7 @@ export async function POST(request: Request) {
     const resetLink = `${appUrl}/autenticacao/redefinir-senha?token=${token}`;
 
     await transporter.sendMail({
-      from:    `"CONDO." <${process.env.GMAIL_USER}>`,
+      from:    process.env.EMAIL_FROM ?? `"CONDO." <${process.env.EMAIL_USER}>`,
       to:      emailNorm,
       subject: 'Redefinir senha — CONDO.',
       html:    buildResetEmailHtml({

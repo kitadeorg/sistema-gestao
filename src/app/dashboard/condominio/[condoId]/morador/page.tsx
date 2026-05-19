@@ -44,18 +44,11 @@ function KPICard({
 }
 
 export default function MoradorPainelPage() {
-  const { condoId } = useParams() as { condoId: string };
+  const params = useParams() as { condoId?: string };
   const { userData, loading: authLoading } = useAuthContext();
 
-  const [stats, setStats] = useState<MoradorStats>({
-    ocorrenciasAtivas: 0,
-    visitantesHoje: 0,
-  });
-  const [quotaAtual, setQuotaAtual] = useState<Quota | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  // Usa o condoId da URL — fonte mais fiável
-  const condominioId  = condoId;
+  // condoId vem da URL ou do perfil do utilizador (quando acedido via /dashboard)
+  const condominioId  = params?.condoId ?? userData?.condominioId ?? '';
   const unidadeId     = userData?.unidadeId;
   const unidadeNumero = userData?.unidadeNumero;
   const bloco         = userData?.bloco;

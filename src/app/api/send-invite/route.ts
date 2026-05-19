@@ -3,14 +3,16 @@ import nodemailer from 'nodemailer';
 import { logAudit } from '@/lib/firebase/auditLog';
 
 // ─────────────────────────────────────────────
-// TRANSPORTER — Gmail com App Password
+// TRANSPORTER — Hostinger SMTP
 // ─────────────────────────────────────────────
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: process.env.EMAIL_HOST,
+  port: Number(process.env.EMAIL_PORT ?? 465),
+  secure: true, // SSL na porta 465
   auth: {
-    user: process.env.GMAIL_USER,   // ex: seuemail@gmail.com
-    pass: process.env.GMAIL_APP_PASSWORD, // App Password de 16 dígitos do Google
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
   },
 });
 
@@ -22,13 +24,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Dados incompletos.' }, { status: 400 });
     }
 
-    // Validar configuração do Gmail
-    if (!process.env.GMAIL_USER || !process.env.GMAIL_APP_PASSWORD ||
-        process.env.GMAIL_USER === 'seuemail@gmail.com' ||
-        process.env.GMAIL_APP_PASSWORD === 'abcdabcdabcdabcd') {
-      console.error('[send-invite] ❌ Gmail não configurado no .env');
+    // Validar configuração do email
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      console.error('[send-invite] ❌ Email não configurado no .env');
       return NextResponse.json(
-        { error: 'Email não configurado. Preenche GMAIL_USER e GMAIL_APP_PASSWORD no .env.' },
+        { error: 'Email não configurado. Preenche EMAIL_USER e EMAIL_PASS no .env.' },
         { status: 500 },
       );
     }
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     };
 
     await transporter.sendMail({
-      from:    `"CONDO." <${process.env.GMAIL_USER}>`,
+      from:    process.env.EMAIL_FROM ?? `"CONDO." <${process.env.EMAIL_USER}>`,
       to:      email,
       subject: 'O seu acesso ao CONDO. — Credenciais de entrada',
       html:    buildEmailHtml({
