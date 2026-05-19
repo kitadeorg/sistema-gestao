@@ -53,6 +53,13 @@ export default function MoradorPainelPage() {
   const unidadeNumero = userData?.unidadeNumero;
   const bloco         = userData?.bloco;
 
+  const [stats, setStats] = useState<MoradorStats>({
+    ocorrenciasAtivas: 0,
+    visitantesHoje: 0,
+  });
+  const [quotaAtual, setQuotaAtual] = useState<Quota | null>(null);
+  const [loading, setLoading] = useState(true);
+
   /* ✅ Buscar estatísticas — só quando temos condominioId */
   useEffect(() => {
     // Se o auth ainda está a carregar, aguardar
