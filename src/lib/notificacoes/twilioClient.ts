@@ -66,8 +66,8 @@ export async function enviarWhatsApp(
     }
 
     return { sucesso: true, sid: data.sid };
-  } catch (err: any) {
-    return { sucesso: false, erro: err.message ?? 'Erro desconhecido' };
+  } catch (err: unknown) {
+    return { sucesso: false, erro: err instanceof Error ? err.message : 'Erro desconhecido' };
   }
 }
 
@@ -112,8 +112,8 @@ export async function enviarSMS(
     }
 
     return { sucesso: true, sid: data.sid };
-  } catch (err: any) {
-    return { sucesso: false, erro: err.message ?? 'Erro desconhecido' };
+  } catch (err: unknown) {
+    return { sucesso: false, erro: err instanceof Error ? err.message : 'Erro desconhecido' };
   }
 }
 

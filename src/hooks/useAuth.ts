@@ -97,7 +97,7 @@ export function useAuth(): UseAuthReturn {
     });
 
     return () => unsubscribe();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, []);
 
   return { user, userData, loading, refreshUserData };

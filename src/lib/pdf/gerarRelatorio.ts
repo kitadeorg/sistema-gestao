@@ -77,7 +77,7 @@ function desenharCabecalho(doc: jsPDF, titulo: string, logoBranco: string) {
 function desenharRodape(doc: jsPDF, geradoPor: string, id: string) {
   const W = doc.internal.pageSize.getWidth();
   const H = doc.internal.pageSize.getHeight();
-  const total = (doc as any).internal.getNumberOfPages();
+  const total = (doc as jsPDF & { internal: { getNumberOfPages: () => number } }).internal.getNumberOfPages();
 
   for (let i = 1; i <= total; i++) {
     doc.setPage(i);

@@ -15,6 +15,7 @@ import {
   where,
   documentId,
   arrayUnion,
+  DocumentSnapshot,
 } from 'firebase/firestore';
 import type { Condominio, CondominioFormData, UserRole } from '@/types';
 import { logAudit } from './auditLog';
@@ -36,13 +37,13 @@ const condominiosCollection = collection(db, 'condominios');
 // HELPERS INTERNOS
 // ─────────────────────────────────────────────
 
-function mapDocToCondominio(d: ReturnType<typeof doc> | any): Condominio {
-  const data = d.data();
+function mapDocToCondominio(d: DocumentSnapshot): Condominio {
+  const data = d.data() as Record<string, unknown>;
   return {
     id: d.id,
-    ...data,
-    createdAt: data.createdAt?.toDate() ?? new Date(),
-    updatedAt: data.updatedAt?.toDate() ?? new Date(),
+    ...(data as any),
+    createdAt: (data.createdAt as any)?.toDate() ?? new Date(),
+    updatedAt: (data.updatedAt as any)?.toDate() ?? new Date(),
   } as Condominio;
 }
 

@@ -13,6 +13,7 @@ import {
   deleteDoc,
   setDoc,
   serverTimestamp,
+  Timestamp,
 } from 'firebase/firestore';
 
 const moradoresCollection = collection(db, 'moradores');
@@ -221,7 +222,7 @@ export const updateMoradorStatus = async (
       actorId:      actor.actorId,
       actorNome:    actor.actorNome,
       actorRole:    actor.actorRole,
-      accao:        'morador_editado' as any,
+      accao:        'morador_editado',
       categoria:    'moradores',
       descricao:    `Estado do morador ${id} alterado para "${novoStatus}"`,
       entidadeId:   id,
@@ -246,8 +247,8 @@ export interface HistoricoResidencia {
   unidadeNumero?: string;
   bloco?: string;
   condominioId: string;
-  dataEntrada?: any;
-  dataSaida?: any;
+  dataEntrada?: Timestamp | Date;
+  dataSaida?: Timestamp | Date;
   arquivadoPor?: string;
 }
 

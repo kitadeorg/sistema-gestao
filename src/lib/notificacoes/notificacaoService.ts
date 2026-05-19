@@ -22,12 +22,17 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
+import { adminDb } from '@/lib/firebase/admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import { enviarWhatsApp, enviarSMS, twilioConfigurado } from './twilioClient';
 import { whatsappTemplates, smsTemplates, nomeMes } from './templates';
 import type {
   CanalNotificacao,
   TipoNotificacao,
 } from '@/types/firestore';
+
+// Detectar se estamos no servidor (API route) ou no cliente
+const isServer = typeof window === 'undefined';
 
 // ─────────────────────────────────────────────
 // TIPOS
@@ -73,30 +78,61 @@ export async function enviarNotificacao(
     tipo, titulo, mensagemWhatsApp, mensagemSMS, meta,
   } = input;
 
-  // Criar registo pendente no Firestore
-  const notifRef = await addDoc(collection(db, 'notificacoes'), {
-    condominioId,
-    destinatarioId:      destinatarioId ?? null,
-    destinatarioNome,
-    destinatarioTelefone: destinatarioTelefone ?? null,
-    destinatarioEmail:   destinatarioEmail ?? null,
-    canal:               'pendente',
-    tipo,
-    titulo,
-    mensagem:            mensagemWhatsApp,
-    status:              'pendente',
-    meta:                meta ?? null,
-    createdAt:           serverTimestamp(),
-  });
+  // ── Criar registo pendente no Firestore ──
+  let notificacaoId: string;
 
-  const notificacaoId = notifRef.id;
+  if (isServer) {
+    const ref = await adminDb.collection('notificacoes').add({
+      condominioId,
+      destinatarioId:       destinatarioId ?? null,
+      destinatarioNome,
+      destinatarioTelefone: destinatarioTelefone ?? null,
+      destinatarioEmail:    destinatarioEmail ?? null,
+      canal:                'pendente',
+      tipo,
+      titulo,
+      mensagem:             mensagemWhatsApp,
+      status:               'pendente',
+      meta:                 meta ?? null,
+      createdAt:            FieldValue.serverTimestamp(),
+    });
+    notificacaoId = ref.id;
+  } else {
+    const notifRef = await addDoc(collection(db, 'notificacoes'), {
+      condominioId,
+      destinatarioId:       destinatarioId ?? null,
+      destinatarioNome,
+      destinatarioTelefone: destinatarioTelefone ?? null,
+      destinatarioEmail:    destinatarioEmail ?? null,
+      canal:                'pendente',
+      tipo,
+      titulo,
+      mensagem:             mensagemWhatsApp,
+      status:               'pendente',
+      meta:                 meta ?? null,
+      createdAt:            serverTimestamp(),
+    });
+    notificacaoId = notifRef.id;
+  }
+
+  // Helper para atualizar o registo
+  const updateNotif = async (data: Record<string, unknown>) => {
+    if (isServer) {
+      await adminDb.collection('notificacoes').doc(notificacaoId).update({
+        ...data,
+        ...(data.enviadoEm !== undefined ? { enviadoEm: FieldValue.serverTimestamp() } : {}),
+      });
+    } else {
+      await updateDoc(doc(db, 'notificacoes', notificacaoId), data);
+    }
+  };
 
   // ── Tentativa 1: WhatsApp ──────────────────
   if (twilioConfigurado() && destinatarioTelefone) {
     const resultado = await enviarWhatsApp(destinatarioTelefone, mensagemWhatsApp);
 
     if (resultado.sucesso) {
-      await updateDoc(doc(db, 'notificacoes', notificacaoId), {
+      await updateNotif({
         canal:      'whatsapp',
         status:     'enviada',
         externalId: resultado.sid ?? null,
@@ -109,7 +145,7 @@ export async function enviarNotificacao(
     const resultadoSMS = await enviarSMS(destinatarioTelefone, mensagemSMS);
 
     if (resultadoSMS.sucesso) {
-      await updateDoc(doc(db, 'notificacoes', notificacaoId), {
+      await updateNotif({
         canal:      'sms',
         status:     'enviada',
         externalId: resultadoSMS.sid ?? null,
@@ -120,7 +156,7 @@ export async function enviarNotificacao(
     }
 
     // Ambos falharam
-    await updateDoc(doc(db, 'notificacoes', notificacaoId), {
+    await updateNotif({
       canal:  'sms',
       status: 'falhou',
       erro:   `WhatsApp: ${resultado.erro} | SMS: ${resultadoSMS.erro}`,
@@ -137,7 +173,7 @@ export async function enviarNotificacao(
   if (twilioConfigurado() && destinatarioTelefone) {
     const resultado = await enviarSMS(destinatarioTelefone, mensagemSMS);
 
-    await updateDoc(doc(db, 'notificacoes', notificacaoId), {
+    await updateNotif({
       canal:      'sms',
       status:     resultado.sucesso ? 'enviada' : 'falhou',
       externalId: resultado.sid ?? null,
@@ -154,7 +190,7 @@ export async function enviarNotificacao(
   }
 
   // ── Sem canal disponível ──────────────────
-  await updateDoc(doc(db, 'notificacoes', notificacaoId), {
+  await updateNotif({
     canal:  'nenhum',
     status: 'falhou',
     erro:   'Twilio não configurado e sem telefone do destinatário.',
@@ -264,30 +300,36 @@ export async function notificarAvisoMoradores(params: {
   conteudo: string;
   urgente?: boolean;
 }): Promise<{ enviados: number; falhados: number }> {
-  // Buscar todos os moradores activos com telefone
-  const snap = await getDocs(
-    query(
-      collection(db, 'moradores'),
-      where('condominioId', '==', params.condominioId),
-      where('status', '==', 'ativo'),
-    ),
-  );
+  let moradores: { id: string; data: Record<string, any> }[] = [];
+
+  if (isServer) {
+    const snap = await adminDb.collection('moradores')
+      .where('condominioId', '==', params.condominioId)
+      .where('status', '==', 'ativo')
+      .get();
+    moradores = snap.docs.map(d => ({ id: d.id, data: d.data() }));
+  } else {
+    const snap = await getDocs(
+      query(collection(db, 'moradores'),
+        where('condominioId', '==', params.condominioId),
+        where('status', '==', 'ativo'),
+      ),
+    );
+    moradores = snap.docs.map(d => ({ id: d.id, data: d.data() as Record<string, any> }));
+  }
 
   let enviados = 0;
   let falhados = 0;
 
-  const templateData = {
-    moradorNome:    '',
-    condominioNome: params.condominioNome,
-    titulo:         params.titulo,
-    conteudo:       params.conteudo,
-  };
-
-  for (const moradorDoc of snap.docs) {
-    const morador = moradorDoc.data();
+  for (const { id: moradorId, data: morador } of moradores) {
     if (!morador.telefone) continue;
 
-    templateData.moradorNome = morador.nome ?? 'Morador';
+    const templateData = {
+      moradorNome:    morador.nome ?? 'Morador',
+      condominioNome: params.condominioNome,
+      titulo:         params.titulo,
+      conteudo:       params.conteudo,
+    };
 
     const fn = params.urgente
       ? whatsappTemplates.avisoUrgente
@@ -296,14 +338,14 @@ export async function notificarAvisoMoradores(params: {
     const resultado = await enviarNotificacao({
       condominioId:         params.condominioId,
       condominioNome:       params.condominioNome,
-      destinatarioId:       moradorDoc.id,
+      destinatarioId:       moradorId,
       destinatarioNome:     morador.nome ?? 'Morador',
       destinatarioTelefone: morador.telefone,
       destinatarioEmail:    morador.email,
       tipo:                 params.urgente ? 'aviso_urgente' : 'aviso_geral',
       titulo:               params.titulo,
-      mensagemWhatsApp:     fn({ ...templateData, moradorNome: morador.nome ?? 'Morador' }),
-      mensagemSMS:          smsTemplates.avisoGeral({ ...templateData, moradorNome: morador.nome ?? 'Morador' }),
+      mensagemWhatsApp:     fn(templateData),
+      mensagemSMS:          smsTemplates.avisoGeral(templateData),
       meta: { titulo: params.titulo, urgente: params.urgente ?? false },
     });
 
@@ -364,19 +406,28 @@ export async function notificarAssembleia(params: {
   data: string;
   local?: string;
 }): Promise<{ enviados: number; falhados: number }> {
-  const snap = await getDocs(
-    query(
-      collection(db, 'moradores'),
-      where('condominioId', '==', params.condominioId),
-      where('status', '==', 'ativo'),
-    ),
-  );
+  let moradores: { id: string; data: Record<string, any> }[] = [];
+
+  if (isServer) {
+    const snap = await adminDb.collection('moradores')
+      .where('condominioId', '==', params.condominioId)
+      .where('status', '==', 'ativo')
+      .get();
+    moradores = snap.docs.map(d => ({ id: d.id, data: d.data() }));
+  } else {
+    const snap = await getDocs(
+      query(collection(db, 'moradores'),
+        where('condominioId', '==', params.condominioId),
+        where('status', '==', 'ativo'),
+      ),
+    );
+    moradores = snap.docs.map(d => ({ id: d.id, data: d.data() as Record<string, any> }));
+  }
 
   let enviados = 0;
   let falhados = 0;
 
-  for (const moradorDoc of snap.docs) {
-    const morador = moradorDoc.data();
+  for (const { id: moradorId, data: morador } of moradores) {
     if (!morador.telefone) continue;
 
     const templateData = {
@@ -390,7 +441,7 @@ export async function notificarAssembleia(params: {
     const resultado = await enviarNotificacao({
       condominioId:         params.condominioId,
       condominioNome:       params.condominioNome,
-      destinatarioId:       moradorDoc.id,
+      destinatarioId:       moradorId,
       destinatarioNome:     morador.nome ?? 'Morador',
       destinatarioTelefone: morador.telefone,
       destinatarioEmail:    morador.email,

@@ -1,21 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getUnidades } from '@/lib/firebase/unidades';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { Unidade, MoradorDoc } from '@/types/firestore';
 
 export function useUnidades(condoId: string) {
 
   const { isSuperAdmin } = useAuthContext();
 
-  const [unidades, setUnidades] = useState<any[]>([]);
-  const [moradoresMap, setMoradoresMap] = useState<Record<string, any>>({});
+  const [unidades, setUnidades] = useState<Unidade[]>([]);
+  const [moradoresMap, setMoradoresMap] = useState<Record<string, MoradorDoc>>({});
   const [financeiroMap, setFinanceiroMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
-  const fetchUnidades = async () => {
+  const fetchUnidades = useCallback(async () => {
     if (!condoId) return;
 
     setLoading(true);
@@ -27,9 +28,9 @@ export function useUnidades(condoId: string) {
       query(collection(db, 'moradores'), where('condominioId', '==', condoId))
     );
 
-    const moradoresTemp: Record<string, any> = {};
+    const moradoresTemp: Record<string, MoradorDoc> = {};
     moradoresSnap.docs.forEach((doc) => {
-      const m = doc.data();
+      const m = doc.data() as MoradorDoc;
       if (m.unidadeId) moradoresTemp[m.unidadeId] = m;
     });
 
@@ -50,11 +51,11 @@ export function useUnidades(condoId: string) {
 
     setFinanceiroMap(financeiroTemp);
     setLoading(false);
-  };
+  }, [condoId, isSuperAdmin]);
 
   useEffect(() => {
     fetchUnidades();
-  }, [condoId]);
+  }, [fetchUnidades]);
 
   return {
     unidades,

@@ -8,6 +8,7 @@ import {
   where,
   orderBy,
   serverTimestamp,
+  Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { logAudit } from './auditLog';
@@ -26,7 +27,7 @@ export interface Comentario {
   autorRole: string;
   texto: string;
   anexos?: { url: string; nome: string; tipo: string }[];
-  createdAt: any;
+  createdAt: Timestamp | Date;
 }
 
 /* ========================================================= */

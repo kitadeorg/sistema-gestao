@@ -360,7 +360,7 @@ export function useAdminDashboard({
           },
         });
 
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('[useAdminDashboard] Erro:', err);
         setError('Erro ao carregar dados do dashboard.');
       } finally {

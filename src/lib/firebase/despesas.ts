@@ -84,7 +84,7 @@ export async function getDespesas(
   inicio?: Date,
   fim?: Date,
 ): Promise<Despesa[]> {
-  let q = query(
+  const q = query(
     collection(db, 'despesas'),
     where('condominioId', '==', condominioId),
     orderBy('data', 'desc'),

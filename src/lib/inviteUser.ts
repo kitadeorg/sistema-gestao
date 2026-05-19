@@ -178,8 +178,8 @@ export async function inviteUser(data: InviteUserData): Promise<InviteResult> {
       const body = await res.json().catch(() => ({}));
       emailError = body.error ?? 'Erro desconhecido ao enviar email.';
     }
-  } catch (err: any) {
-    emailError = err?.message ?? 'Falha de rede ao enviar email.';
+  } catch (err: unknown) {
+    emailError = err instanceof Error ? err.message : 'Falha de rede ao enviar email.';
   }
 
   return { username, password, emailSent, emailError };

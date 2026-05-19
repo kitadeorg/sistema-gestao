@@ -35,7 +35,7 @@ export default function AdminDateFilter({
 
   const aplicarPreset = (preset: Preset) => {
     const agora = new Date();
-    let inicio = new Date();
+    const inicio = new Date();
 
     if (preset === 'mes') inicio.setMonth(agora.getMonth() - 1);
     else if (preset === 'trimestre') inicio.setMonth(agora.getMonth() - 3);
