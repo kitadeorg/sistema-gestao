@@ -1023,7 +1023,7 @@ export default function ManualPage() {
 
         {/* ── SCROLLABLE CONTENT ── */}
         <main ref={contentRef} className="flex-1 overflow-y-auto">
-          <div className="max-w-3xl mx-auto px-6 sm:px-10 py-10">
+          <div className="w-[90%] mx-auto px-6 sm:px-10 py-10">
 
             {/* Breadcrumb */}
             {currentSection && currentSub && (

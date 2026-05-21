@@ -44,19 +44,17 @@
 html {
   /*
    * Escala fluida e inteligente — usa clamp() para adaptar automaticamente:
-   * - Mínimo: 10px  (ecrãs muito pequenos / mobile)
-   * - Fluido: 0.85vw (escala com a largura do viewport)
-   * - Máximo: 11.5px (ecrãs grandes — equivale a ~72% de zoom)
+   * - Mínimo: 13px  (mobile)
+   * - Fluido: 1.1vw (escala com a largura do viewport)
+   * - Máximo: 16px  (desktop grande — tamanho natural do browser)
    *
    * Resultado prático:
-   *   320px  → ~10px   (mobile pequeno)
-   *   768px  → ~10.5px (tablet)
-   *   1280px → ~10.9px (laptop)
-   *   1920px → ~11.5px (desktop grande)
-   *
-   * Todos os rem do sistema escalam proporcionalmente.
+   *   320px  → ~13px  (mobile)
+   *   768px  → ~13.5px (tablet)
+   *   1280px → ~14px  (laptop)
+   *   1920px → ~16px  (desktop grande — 100% natural)
    */
-  font-size: clamp(10px, 0.85vw, 11.5px);
+  font-size: clamp(14px, 1.25vw, 18px);
   scroll-behavior: smooth;
 }
 
