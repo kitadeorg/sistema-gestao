@@ -21,7 +21,8 @@ export const metadata: Metadata = {
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
+  maximumScale: 5, // permite zoom manual pelo utilizador
+  viewportFit: 'cover',
 };
 
 export default function RootLayout({
