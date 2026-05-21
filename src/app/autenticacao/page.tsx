@@ -277,12 +277,12 @@ export default function AuthPage() {
             <Image
               src="/logo.svg"
               alt="CONDO."
-              width={130}
-              height={31}
-              className="h-8 w-auto drop-shadow-lg"
+              width={180}
+              height={43}
+              className="h-11 w-auto drop-shadow-lg"
               style={{ filter: 'brightness(0) invert(1)' }}
             />
-            <p className="text-orange-100 text-sm mt-3 leading-relaxed">
+            <p className="text-orange-100 text-base mt-3 leading-relaxed">
               Gestão inteligente para condomínios
             </p>
           </div>
@@ -299,8 +299,8 @@ export default function AuthPage() {
                   <Icon className="w-5 h-5 text-white" strokeWidth={2.5} />
                 </div>
                 <div>
-                  <p className="text-white font-semibold text-sm">{title}</p>
-                  <p className="text-orange-100 text-xs mt-0.5">{desc}</p>
+                  <p className="text-white font-semibold text-base">{title}</p>
+                  <p className="text-orange-100 text-sm mt-0.5">{desc}</p>
                 </div>
               </div>
             ))}
@@ -312,15 +312,15 @@ export default function AuthPage() {
 
           {/* Logo mobile */}
           <div className="md:hidden mb-6 flex justify-center">
-            <Image src="/logo.svg" alt="CONDO." width={110} height={26} className="h-7 w-auto" />
+            <Image src="/logo.svg" alt="CONDO." width={140} height={34} className="h-9 w-auto" />
           </div>
 
           {/* Título */}
           <div className="mb-7">
-            <h1 className="text-2xl sm:text-3xl font-black text-zinc-900 tracking-tight">
+            <h1 className="text-3xl sm:text-4xl font-black text-zinc-900 tracking-tight">
               {isForgot ? 'Recuperar senha' : 'Bem-vindo de volta!'}
             </h1>
-            <p className="text-zinc-500 text-sm mt-1.5">
+            <p className="text-zinc-500 text-base mt-1.5">
               {isForgot
                 ? 'Insira o seu email para receber o link de recuperação.'
                 : 'Entre com as suas credenciais para continuar.'}
@@ -450,7 +450,7 @@ export default function AuthPage() {
             </>
           )}
 
-          <p className="mt-8 text-center text-zinc-400 text-xs">
+          <p className="mt-8 text-center text-zinc-400 text-sm">
             © {new Date().getFullYear()} CONDO. — Sistema de Gestão de Condomínios
           </p>
         </div>
